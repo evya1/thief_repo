@@ -6,18 +6,18 @@ and compute identical results from identical inputs.
 """
 
 from common.domain import (
+    MOVES,
+    ORTHOGONAL,
+    SCORES,
+    TIE_SCORE,
+    ZEROED,
     Board,
     Cell,
     GameEngine,
     IllegalMoveError,
     Move,
-    MOVES,
-    ORTHOGONAL,
     Outcome,
     Role,
-    SCORES,
-    TIE_SCORE,
-    ZEROED,
     is_tie_row,
     score_for,
     settled_outcome,

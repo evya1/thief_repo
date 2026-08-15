@@ -30,11 +30,13 @@ fail_under = 85
 show_missing = true
 skip_covered = true
 
+
+
 [dependency-groups]
 dev = [
-  "pre-commit>=4.0",
-  "pytest>=8.0",
-  "pytest-cov>=6.0",
-  "pyyaml>=6.0",
-  "ruff>=0.8",
+    "pre-commit>=4.0",
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pyyaml>=6.0",
+    "ruff>=0.8",
 ]

@@ -1,23 +1,13 @@
-"""Tests for config validation.
+"""Tests for config field and fixed-value validation.
 
-Covers BL-02, BL-04, BL-05, BL-07.
+Covers BL-04, BL-05.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
-from common.config import (
-    ConfigError,
-    FieldError,
-    FixedValueError,
-    MinimumError,
-    load_config,
-    validate_config,
-)
+from common.config import ConfigError, FieldError, FixedValueError, MinimumError, validate_config
 
 
 @pytest.fixture
@@ -71,38 +61,6 @@ def valid_config() -> dict[str, object]:
             "queue_depth": 100,
         },
     }
-
-
-class TestLoadConfig:
-    """BL-05: fixed field names."""
-
-    def test_load_valid_config(self, valid_config: dict[str, object], tmp_path: Path) -> None:
-        """BL-05: valid config loads without error."""
-        config_file = tmp_path / "game.json"
-        config_file.write_text(json.dumps(valid_config))
-        result = load_config(config_file)
-        assert result == valid_config
-
-    def test_load_missing_file(self, tmp_path: Path) -> None:
-        """Config file not found raises ConfigError."""
-        with pytest.raises(ConfigError, match="not found"):
-            load_config(tmp_path / "missing.json")
-
-
-class TestValidateSections:
-    """BL-05: all required sections must be present."""
-
-    def test_missing_section(self, valid_config: dict[str, object]) -> None:
-        """BL-05: missing section raises FieldError."""
-        del valid_config["world"]
-        with pytest.raises(FieldError, match="Missing required sections"):
-            validate_config(valid_config)
-
-    def test_unknown_section(self, valid_config: dict[str, object]) -> None:
-        """BL-05: unknown section raises FieldError."""
-        valid_config["unknown_section"] = {}
-        with pytest.raises(FieldError, match="Unknown sections"):
-            validate_config(valid_config)
 
 
 class TestValidateFields:

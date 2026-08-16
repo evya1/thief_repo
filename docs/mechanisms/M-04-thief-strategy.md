@@ -12,7 +12,7 @@ updated: 2026-08-15
 
 ## Why this mechanism has its own PRD
 
-Evasion/escape-preservation/truthful-capture-response decision policy is genuinely role-specific and must never leak into the Police repository (that is what makes it worth separating from the shared C02 component PRD, and worth keeping out of the bundle entirely — this file exists only in `thief_repo`).
+Evasion/escape-preservation/truthful-capture-response decision policy is genuinely role-specific and must never leak into the Police repository (that is what makes it worth separating from the shared C02 component PRD, and worth keeping fully role-specific — this file exists only in `thief_repo`).
 
 ## Governing requirements
 

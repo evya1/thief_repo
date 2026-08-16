@@ -2,10 +2,10 @@
 artifact: todo
 id: TODO-THIEF
 status: active
-derived_from: PLAN-THIEF@0.2
+derived_from: PLAN-THIEF@0.3
 repository_state: greenfield
 owner: orchestrator
-updated: 2026-08-15
+updated: 2026-08-16
 ---
 
 # Thief execution ledger

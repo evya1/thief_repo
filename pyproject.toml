@@ -4,9 +4,7 @@ version = "1.00"
 description = "Greenfield Thief peer for the distributed Police/Thief final project"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-  "fastmcp>=2.0,<3.0",
-]
+dependencies = []
 
 [tool.uv]
 package = false
@@ -21,11 +19,11 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short -q --cov-report=term-missing --cov-fail-under=85"
+addopts = "--tb=short -q --cov=scripts --cov-report=term-missing --cov-fail-under=85"
 
 [tool.coverage.run]
 branch = false
-source = ["scripts", "common"]
+source = ["scripts"]
 
 [tool.coverage.report]
 fail_under = 85

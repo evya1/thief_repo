@@ -21,8 +21,7 @@ parallel_safe: true
 claimed_by:
 claim_expires_at:
 write_set:
-  - common/transport/inbox.py
-  - common/transport/faults.py
+  - src/thief_peer/transport/inbox.py
   - tests/unit/transport/test_inbox.py
   - tests/integration/test_delivery_faults.py
 risk: high

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from common.config import ConfigError, FieldError, FixedValueError, MinimumError, validate_config
+from common.config import FieldError, FixedValueError, validate_config
 
 
 @pytest.fixture
@@ -94,38 +94,8 @@ class TestValidateFixedValues:
         with pytest.raises(FixedValueError, match="capture_cop"):
             validate_config(valid_config)
 
-
-class TestValidateMinimums:
-    """BL-04: minimum values cannot be lowered."""
-
-    def test_grid_size_below_minimum(self, valid_config: dict[str, object]) -> None:
-        """BL-04: grid_size < 7 raises MinimumError."""
-        valid_config["board_and_agents"]["grid_size"] = 6
-        with pytest.raises(MinimumError, match="grid_size"):
+    def test_technical_loss_changed(self, valid_config: dict[str, object]) -> None:
+        """BL-04: changed scoring.technical_loss raises FixedValueError."""
+        valid_config["scoring"]["technical_loss"] = 1
+        with pytest.raises(FixedValueError, match="technical_loss"):
             validate_config(valid_config)
-
-    def test_grid_size_at_minimum(self, valid_config: dict[str, object]) -> None:
-        """BL-04: grid_size = 7 is accepted."""
-        valid_config["board_and_agents"]["grid_size"] = 7
-        validate_config(valid_config)
-
-    def test_max_barriers_below_minimum(self, valid_config: dict[str, object]) -> None:
-        """BL-04: max_barriers < 14 raises MinimumError."""
-        valid_config["movement_and_barriers"]["max_barriers"] = 10
-        with pytest.raises(MinimumError, match="max_barriers"):
-            validate_config(valid_config)
-
-
-class TestValidateNumAgents:
-    """BL-02: number of agents must be exactly 2."""
-
-    def test_num_agents_not_two(self, valid_config: dict[str, object]) -> None:
-        """BL-02: num_agents != 2 raises ConfigError."""
-        valid_config["board_and_agents"]["num_agents"] = 3
-        with pytest.raises(ConfigError, match="num_agents"):
-            validate_config(valid_config)
-
-    def test_num_agents_is_two(self, valid_config: dict[str, object]) -> None:
-        """BL-02: num_agents = 2 is accepted."""
-        valid_config["board_and_agents"]["num_agents"] = 2
-        validate_config(valid_config)

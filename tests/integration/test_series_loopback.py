@@ -17,7 +17,6 @@ Assertions:
 from __future__ import annotations
 
 from common.domain.scoring import Role, role_for
-
 from common.transport.loopback import pair
 from common.transport.series import PeerConfig, SeriesResult, run_series
 
@@ -28,6 +27,24 @@ class DummyBudgets:
     turn_timeout = 30.0
     connect_timeout = 30.0
     poll_interval = 0.01
+
+
+_full_terms = {
+    "board_size": 7,
+    "smell_grid_size": 5,
+    "decay_per_step": 0.1,
+    "emit_intensity": 0.9,
+    "min_center_intensity": 0.5,
+    "max_steps": 35,
+    "barriers_max": 14,
+    "setting": "New York",
+    "hint_max_words": 15,
+    "axis_origin_corner": "top-left",
+    "axis_start_index": 0,
+    "thief_start": [3, 3],
+    "cop_start": [0, 0],
+    "num_games": 6,
+}
 
 
 class DeterministicEngine:
@@ -70,13 +87,13 @@ def test_full_series_over_loopback() -> None:
     config_a = PeerConfig(
         natural_role=Role.POLICE,
         budgets=DummyBudgets(),
-        terms={"max_moves": 35, "grid_size": 7},
+        terms=_full_terms,
         seed=42,
     )
     config_b = PeerConfig(
         natural_role=Role.THIEF,
         budgets=DummyBudgets(),
-        terms={"max_moves": 35, "grid_size": 7},
+        terms=_full_terms,
         seed=42,
     )
 
@@ -147,13 +164,13 @@ def test_deterministic_seed() -> None:
         config_a = PeerConfig(
             natural_role=Role.POLICE,
             budgets=DummyBudgets(),
-            terms={"max_moves": 35, "grid_size": 7},
+            terms=_full_terms,
             seed=42,
         )
         config_b = PeerConfig(
             natural_role=Role.THIEF,
             budgets=DummyBudgets(),
-            terms={"max_moves": 35, "grid_size": 7},
+            terms=_full_terms,
             seed=42,
         )
         engine_a = DeterministicEngine(Role.POLICE, seed=42)

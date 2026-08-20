@@ -28,8 +28,8 @@ class FakeGmailClient:
     def drafts(self):
         return self
 
-    def send(self, user_id: str, body: dict):
-        self.sent_messages.append((user_id, body))
+    def send(self, **kwargs):
+        self.sent_messages.append(kwargs)
         return self
 
     def execute(self):

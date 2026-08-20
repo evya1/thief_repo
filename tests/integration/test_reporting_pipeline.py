@@ -12,6 +12,8 @@ from thief_peer.reporting.schemas import (
     finalize_log,
 )
 
+OFFICIAL_RECIPIENT = "rmisegal+uoh26finalgame@gmail.com"
+
 
 def _signer(b: bytes) -> str:
     return "sig-" + b.hex()[:8]
@@ -19,7 +21,7 @@ def _signer(b: bytes) -> str:
 
 def _sample_bundle(game_uid: str = "series-test-99"):
     decl = build_declaration(
-        game_uid=game_uid, team="team_beta", role="thief", members=["charlie", "dave"],
+        game_uid=game_uid, team="team_alpha", role="thief", members=["alice", "bob"],
         police_repo_url="http://p", thief_repo_url="http://t", mcp_addresses=["mcp://1"],
         hardware="h", model="m", token_budget=1000, start_time="s", end_time="e", num_games=6,
     )
@@ -65,7 +67,7 @@ def test_reporting_pipeline_success_and_idempotence():
     assert len(attachments) == 14
 
     gk = ExternalApiGatekeeper()
-    sender = GmailSender(gatekeeper=gk)
+    sender = GmailSender(gatekeeper=gk, default_recipient=OFFICIAL_RECIPIENT)
     pipeline = ReportingPipeline(gmail_sender=sender)
 
     receipt = pipeline.process_and_send(bundle)
@@ -81,7 +83,8 @@ def test_reporting_pipeline_unfinalized_log_refusal():
     object.__setattr__(bundle.sub_game_logs[0], "finalized", False)
 
     gk = ExternalApiGatekeeper()
-    pipeline = ReportingPipeline(gmail_sender=GmailSender(gatekeeper=gk))
+    sender = GmailSender(gatekeeper=gk, default_recipient=OFFICIAL_RECIPIENT)
+    pipeline = ReportingPipeline(gmail_sender=sender)
 
-    with pytest.raises(ReportingPipelineError, match="must be finalized"):
+    with pytest.raises(ReportingPipelineError, match="Bundle reconciliation failed"):
         pipeline.process_and_send(bundle)

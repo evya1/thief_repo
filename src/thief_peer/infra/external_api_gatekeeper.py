@@ -113,7 +113,12 @@ class ExternalApiGatekeeper:
                 except GatekeeperError:
                     raise
                 except Exception as exc:
-                    if exc.__class__.__name__ in ("DraftSubstitutionError", "AttachmentMissingError", "DuplicateSendError"):
+                    if exc.__class__.__name__ in (
+                        "DraftSubstitutionError",
+                        "AttachmentMissingError",
+                        "DuplicateSendError",
+                        "InvalidScopeError",
+                    ):
                         raise
                     status_code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
                     is_429 = status_code == 429 or "429" in str(exc) or "rate" in str(exc).lower()

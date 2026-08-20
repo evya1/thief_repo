@@ -28,8 +28,8 @@ class FakeGmailClient:
     def drafts(self):
         return self
 
-    def send(self, userId: str, body: dict):
-        self.sent_messages.append((userId, body))
+    def send(self, user_id: str, body: dict):
+        self.sent_messages.append((user_id, body))
         return self
 
     def execute(self):
@@ -81,5 +81,5 @@ def test_draft_substitution_prevented():
     draft_client = FakeGmailClient(is_draft=True)
     sender = GmailSender(gatekeeper=gk, service_client=draft_client)
 
-    with pytest.raises(Exception):
+    with pytest.raises(DraftSubstitutionError):
         sender.send_report(game_uid="game-200", artifacts=[("f.json", b"{}")])

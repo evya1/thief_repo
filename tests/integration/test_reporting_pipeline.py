@@ -13,6 +13,10 @@ from thief_peer.reporting.schemas import (
 )
 
 
+def _signer(b: bytes) -> str:
+    return "sig-" + b.hex()[:8]
+
+
 def _sample_bundle(game_uid: str = "series-test-99"):
     decl = build_declaration(
         game_uid=game_uid, team="team_beta", role="thief", members=["charlie", "dave"],
@@ -26,8 +30,6 @@ def _sample_bundle(game_uid: str = "series-test-99"):
     commits = {}
     tokens = {}
 
-    signer = lambda b: "sig-" + b.hex()[:8]
-
     for i in range(6):
         gid = f"{game_uid}:{i}"
         cfg = build_sub_game_config(
@@ -38,7 +40,7 @@ def _sample_bundle(game_uid: str = "series-test-99"):
         configs.append(cfg)
 
         log = build_sub_game_log(game_uid=game_uid, game_id=gid, steps=[{"step": i}])
-        finalize_log(log, signer)
+        finalize_log(log, _signer)
         logs.append(log)
 
         subgame_results.append({"game_id": gid, "score": 10})

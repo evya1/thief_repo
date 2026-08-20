@@ -21,6 +21,12 @@ class FakeClock:
         self.now += seconds
 
 
+class Http429Error(Exception):
+    def __init__(self, msg: str = "429 Too Many Requests"):
+        super().__init__(msg)
+        self.status_code = 429
+
+
 def test_token_bucket_rate_limiter():
     clock = FakeClock()
     cfg = GatekeeperConfig(requests_per_minute=60, bucket_capacity=2, dos_threshold=100)
@@ -82,9 +88,7 @@ def test_retry_on_429():
         nonlocal attempts
         attempts += 1
         if attempts < 2:
-            err = Exception("429 Too Many Requests")
-            setattr(err, "status_code", 429)
-            raise err
+            raise Http429Error()
         return "success"
 
     assert gk.execute(flaky_service) == "success"

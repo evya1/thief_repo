@@ -33,7 +33,7 @@ A task is never marked `done` because code exists. `implementation_present` and 
 | T002 | system | foundation | ready | partial | P0 | NET-001, QR-014 | — | yes | — | [task](tasks/T002-select-runtime-dependencies-and-lock.md) |
 | T003 | C01 | foundation | blocked | partial | P0 | ARCH-001, ARCH-002, ARCH-003, ARCH-009, CFG-002, CFG-003, CFG-006, CFG-007, CFG-008, QR-004, QR-006, QR-012, QR-013 | T002 | no | — | [task](tasks/T003-create-package-and-configuration-boundary.md) |
 | T004 | C01 | component | blocked | implementation_present | P0 | GAME-001..GAME-014 | T003 | yes | — | [task](tasks/T004-implement-domain-rules.md) |
-| T005 | C02 | component | blocked | review_pending | P0 | STRAT-002, STRAT-003, STRAT-004, STRAT-005, CFG-001, CFG-004 | T004 | yes | — | [task](tasks/T005-implement-scent-model-and-lock.md) |
+| T005 | C02 | component | blocked | implementation_present | P0 | STRAT-002, STRAT-003, STRAT-004, STRAT-005, CFG-001, CFG-004 | T004 | yes | — | [task](tasks/T005-implement-scent-model-and-lock.md) |
 | T006 | C02 | component | blocked | not_started | P0 | STRAT-001, STRAT-006 | T005 | yes | — | [task](tasks/T006-implement-belief-state.md) |
 | T007 | C02 | component | blocked | not_started | P0 | ARCH-007, STRAT-007, STRAT-008, STRAT-009 | T004, T006 | yes | — | [task](tasks/T007-implement-role-strategy.md) |
 | T008 | C03 | component | blocked | implementation_present | P0 | SEC-001, SEC-002, SEC-003, SEC-004, SEC-005, SEC-006, SEC-007 | T003 | yes | — | [task](tasks/T008-implement-integrity-core.md) |

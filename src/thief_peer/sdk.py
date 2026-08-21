@@ -11,7 +11,7 @@ from common.transport.loopback import pair
 from common.transport.series import PeerConfig, PeerFacade, SeriesResult
 from thief_peer.strategy import BaselineStrategy, Strategy
 from thief_peer.wire import StandInEngine
-from thief_peer.wire.config import PrivateConfig, load_private, project_terms
+from thief_peer.wire.config import PrivateConfig, load_private, peer_locks, project_terms
 
 __version__ = "1.0.0"
 SUPPORTED_SCHEMA_VERSIONS = frozenset({"1.0", "1.1", "1.2"})
@@ -101,6 +101,7 @@ def create_peer(
         budgets=peer_budgets,
         terms=terms,
         seed=seed or private.seed,
+        locks=peer_locks(private),
         mode=mode,
     )
 

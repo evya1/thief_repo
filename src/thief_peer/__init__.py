@@ -1,1 +1,22 @@
-"""Thief peer for the distributed Police/Thief game."""
+"""Thief peer package."""
+
+from thief_peer.sdk import (
+    Budgets,
+    PeerFacade,
+    SeriesResult,
+    __version__,
+    create_peer,
+    validate_startup_config,
+)
+from thief_peer.strategy import BaselineStrategy, Strategy
+
+__all__ = [
+    "BaselineStrategy",
+    "Budgets",
+    "PeerFacade",
+    "SeriesResult",
+    "Strategy",
+    "create_peer",
+    "validate_startup_config",
+    "__version__",
+]

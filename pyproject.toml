@@ -1,12 +1,16 @@
 [project]
 name = "p2p-thief-peer"
-version = "1.00"
+version = "1.0.0"
 description = "Greenfield Thief peer for the distributed Police/Thief final project"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "fastmcp>=3.4,<4",
 ]
+
+[project.scripts]
+thief-peer = "thief_peer.cli:main"
+thief_peer = "thief_peer.cli:main"
 
 [tool.uv]
 package = false
@@ -25,20 +29,24 @@ addopts = "--tb=short -q --cov-report=term-missing --cov-fail-under=85"
 
 [tool.coverage.run]
 branch = false
-source = ["scripts", "common"]
+source = ["scripts", "src/thief_peer", "common"]
 
 [tool.coverage.report]
 fail_under = 85
 show_missing = true
 skip_covered = true
-
-
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+  '""".*"""',
+]
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.0",
-    "pytest>=8.0",
-    "pytest-cov>=6.0",
-    "pyyaml>=6.0",
-    "ruff>=0.8",
+  "pre-commit>=4.0",
+  "pytest>=8.0",
+  "pytest-cov>=6.0",
+  "pyyaml>=6.0",
+  "ruff>=0.8",
 ]

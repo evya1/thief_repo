@@ -23,6 +23,7 @@ from common.transport.loopback import Inboxes  # noqa: E402
 from common.transport.mcp_client import McpChannel, edge_answers  # noqa: E402
 from common.transport.mcp_server import TOOL_NAMES, serve_background  # noqa: E402
 from common.transport.series import PeerConfig, SeriesResult, run_series  # noqa: E402
+from src.thief_peer.wire import StandInEngine  # noqa: E402
 
 
 class DummyBudgets:
@@ -47,9 +48,6 @@ _full_terms = {
     "cop_start": [0, 0],
     "num_games": 6,
 }
-
-
-from src.thief_peer.wire import StandInEngine
 
 
 def _free_port() -> int:

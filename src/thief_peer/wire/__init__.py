@@ -127,3 +127,10 @@ class StandInEngine:
             if self._engine.survived():
                 return Outcome.SURVIVAL
         return None
+
+
+# Imported at the bottom to avoid a circular import: BrainDrivenEngine (in
+# ``thief_peer.wire.brain``) subclasses StandInEngine and must see it defined.
+from thief_peer.wire.brain import BrainDrivenEngine  # noqa: E402
+
+__all__ = ["StandInEngine", "BrainDrivenEngine"]

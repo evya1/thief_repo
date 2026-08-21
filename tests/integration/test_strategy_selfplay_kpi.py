@@ -5,12 +5,10 @@ TC-T17: survival vs reference PoliceBrain >= 60%; vs stand-in >= 30% (labeled).
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 
-from common.domain.board import Board
-from common.domain.rules import GameEngine
 from common.domain.scoring import Role
+from thief_peer.wire import StandInEngine
 
 
 class DummyBudgets:
@@ -42,54 +40,23 @@ _strategy_config = {
 }
 
 
-class ReferencePoliceBrain:
-    """Reference baseline PoliceBrain: distance-max with mobility tie-break.
+class ReferencePoliceBrain(StandInEngine):
+    """Reference baseline PoliceBrain: next-move stand-in (test double).
 
-    This is a test double, non-authoritative (registered evidence only).
+    This is a test double, non-authoritative (registered evidence only). It
+    extends StandInEngine so it implements the TurnEngine seam and always
+    picks the first legal move.
     """
 
-    def __init__(self, seed: int = 42) -> None:
-        self.rng = random.Random(seed)
-        self._position = (0, 0)
-
-    def step(self, sub_game: int, role: Role) -> dict:
-        role_for_fn = __import__("common.domain.scoring", fromlist=["role_for"]).role_for
-        r = role_for_fn(Role.POLICE, sub_game)
-        board = Board(size=7)
-        pos = (0, 0) if r is Role.POLICE else (3, 3)
-        engine = GameEngine(board=board, role=r, position=pos)
-        legal = engine.legal_moves()
-        move = legal[0] if legal else "STAY"
-        engine.apply_own_move(move)
-        return {
-            "move": move,
-            "hint": "I am here",
-            "step": 0,
-            "state": engine.state_string(),
-        }
+    def __init__(self, seed: int = 42, natural_role: Role = Role.POLICE) -> None:
+        super().__init__(natural_role=natural_role, seed=seed)
 
 
-class StandInPoliceEngine:
+class StandInPoliceEngine(StandInEngine):
     """Stage-2 stand-in selection for POLICE sub-games (labeled baseline)."""
 
     def __init__(self, natural_role: Role = Role.POLICE) -> None:
-        self.natural_role = natural_role
-
-    def step(self, sub_game: int, role: Role) -> dict:
-        role_for_fn = __import__("common.domain.scoring", fromlist=["role_for"]).role_for
-        r = role_for_fn(self.natural_role, sub_game)
-        board = Board(size=7)
-        pos = (0, 0) if r is Role.POLICE else (3, 3)
-        engine = GameEngine(board=board, role=r, position=pos)
-        legal = engine.legal_moves()
-        move = legal[0] if legal else "STAY"
-        engine.apply_own_move(move)
-        return {
-            "move": move,
-            "hint": "I am here",
-            "step": 0,
-            "state": engine.state_string(),
-        }
+        super().__init__(natural_role=natural_role)
 
 
 @dataclass

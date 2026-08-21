@@ -23,7 +23,7 @@ from common.transport.loopback import Inboxes  # noqa: E402
 from common.transport.mcp_client import McpChannel, edge_answers  # noqa: E402
 from common.transport.mcp_server import TOOL_NAMES, serve_background  # noqa: E402
 from common.transport.series import PeerConfig, SeriesResult, run_series  # noqa: E402
-from src.thief_peer.wire import StandInEngine  # noqa: E402
+from thief_peer.wire import StandInEngine  # noqa: E402
 
 
 class DummyBudgets:
@@ -65,7 +65,6 @@ def two_peers():
     police_port, thief_port = _free_port(), _free_port()
     police_srv = serve_background(police_inbox, port=police_port, name="police")
     thief_srv = serve_background(thief_inbox, port=thief_port, name="thief")
-    # Police sends to Thief's server and drains its own inbox; Thief mirrored.
     police_ch = McpChannel(thief_srv.url, police_inbox)
     thief_ch = McpChannel(police_srv.url, thief_inbox)
     yield police_ch, thief_ch, police_srv, thief_srv
@@ -97,7 +96,6 @@ def test_full_series_over_real_http(two_peers) -> None:
     assert all(row.audit_ok for row in result_t.ledger)
     assert result_p.settled and result_t.settled
     assert result_p.game_id != "" and result_p.game_uid != ""
-    # Both sides derived the same game identity over the wire (US-MCP-001).
     assert result_p.game_id == result_t.game_id
     assert result_p.game_uid == result_t.game_uid
 
@@ -120,8 +118,7 @@ def test_argument_asymmetry_over_http(two_peers) -> None:
     police_ch, _, _, _ = two_peers
 
     async def _bad():
-        # submit_audit's parameter is `payload`; sending `message` must be rejected.
         return await police_ch._client.call_tool("submit_audit", {"message": {"x": 1}})
 
-    with pytest.raises(Exception):  # noqa: B017 — any FastMCP validation error is acceptable
+    with pytest.raises(Exception):  # noqa: B017
         police_ch._submit(_bad())

@@ -23,6 +23,7 @@ from common.transport.loopback import Inboxes  # noqa: E402
 from common.transport.mcp_client import McpChannel, edge_answers  # noqa: E402
 from common.transport.mcp_server import TOOL_NAMES, serve_background  # noqa: E402
 from common.transport.series import PeerConfig, SeriesResult, run_series  # noqa: E402
+from thief_peer.wire import StandInEngine  # noqa: E402
 
 
 class DummyBudgets:
@@ -49,31 +50,6 @@ _full_terms = {
 }
 
 
-class DeterministicEngine:
-    """A deterministic turn engine that produces legal moves (mirrors the spine test)."""
-
-    def __init__(self, natural_role: Role, board_size: int = 7, seed: int = 42) -> None:
-        self.natural_role = natural_role
-        self.board_size = board_size
-        self.seed = seed
-
-    def _fresh_engine(self, sub_game: int):
-        from common.domain.board import Board
-        from common.domain.rules import GameEngine
-
-        role = role_for(self.natural_role, sub_game)
-        board = Board(size=self.board_size)
-        position = (0, 0) if role is Role.POLICE else (3, 3)
-        return GameEngine(board=board, role=role, position=position)
-
-    def step(self, sub_game: int, role: Role) -> dict:
-        engine = self._fresh_engine(sub_game)
-        legal = engine.legal_moves()
-        move = legal[0] if legal else "STAY"
-        engine.apply_own_move(move)
-        return {"move": move, "hint": "I am here", "step": 0, "state": engine.state_string()}
-
-
 def _free_port() -> int:
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -89,7 +65,6 @@ def two_peers():
     police_port, thief_port = _free_port(), _free_port()
     police_srv = serve_background(police_inbox, port=police_port, name="police")
     thief_srv = serve_background(thief_inbox, port=thief_port, name="thief")
-    # Police sends to Thief's server and drains its own inbox; Thief mirrored.
     police_ch = McpChannel(thief_srv.url, police_inbox)
     thief_ch = McpChannel(police_srv.url, thief_inbox)
     yield police_ch, thief_ch, police_srv, thief_srv
@@ -111,7 +86,7 @@ def test_full_series_over_real_http(two_peers) -> None:
     config_t = PeerConfig(natural_role=Role.THIEF, budgets=DummyBudgets(), terms=_full_terms, seed=42)
     result_p, result_t = run_series(
         police_ch, thief_ch, config_p, config_t,
-        DeterministicEngine(Role.POLICE), DeterministicEngine(Role.THIEF),
+        StandInEngine(Role.POLICE), StandInEngine(Role.THIEF),
     )
     assert isinstance(result_p, SeriesResult) and isinstance(result_t, SeriesResult)
     assert len(result_p.ledger) == 6 and len(result_t.ledger) == 6
@@ -121,7 +96,6 @@ def test_full_series_over_real_http(two_peers) -> None:
     assert all(row.audit_ok for row in result_t.ledger)
     assert result_p.settled and result_t.settled
     assert result_p.game_id != "" and result_p.game_uid != ""
-    # Both sides derived the same game identity over the wire (US-MCP-001).
     assert result_p.game_id == result_t.game_id
     assert result_p.game_uid == result_t.game_uid
 
@@ -144,8 +118,7 @@ def test_argument_asymmetry_over_http(two_peers) -> None:
     police_ch, _, _, _ = two_peers
 
     async def _bad():
-        # submit_audit's parameter is `payload`; sending `message` must be rejected.
         return await police_ch._client.call_tool("submit_audit", {"message": {"x": 1}})
 
-    with pytest.raises(Exception):  # noqa: B017 — any FastMCP validation error is acceptable
+    with pytest.raises(Exception):  # noqa: B017
         police_ch._submit(_bad())

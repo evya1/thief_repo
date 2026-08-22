@@ -106,6 +106,33 @@ class GreedyCapturingPolice:
     def terminal(self):
         return self._session.terminal() if self._session else None
 
+    def terminal_final(self) -> dict | None:
+        """The game-ending final this engine owes after settling, or None.
+
+        Roles alternate across the series, so this double plays both sides: a thief
+        owes the rules-46/47 concession only on an invisible capture (an answered
+        claim or a survival claim already rode the last normal step); a police
+        settling from the thief's final owes a plain sealed STAY.
+        """
+        if self._session is None or self._session.engine is None:
+            return None
+        eng = self._session.engine
+        if eng.role is Role.THIEF:
+            if eng.self_captured() is None:
+                return None
+            self._session.apply_move("STAY")
+            return {
+                "move": "STAY",
+                "hint": "",
+                "state": eng.state_string(),
+                "claim_response": {"claim": [int(eng.position[0]), int(eng.position[1])],
+                                   "caught": True},
+            }
+        if self.terminal() is None:
+            return None
+        self._session.apply_move("STAY")
+        return {"move": "STAY", "hint": "", "state": eng.state_string()}
+
 
 class AlwaysStayThiefEngine:
     """Negative control: a thief that always STAYs (mandatory negative control)."""
@@ -131,6 +158,33 @@ class AlwaysStayThiefEngine:
 
     def terminal(self):
         return self._session.terminal() if self._session else None
+
+    def terminal_final(self) -> dict | None:
+        """The game-ending final this engine owes after settling, or None.
+
+        Roles alternate across the series, so this double plays both sides: a thief
+        owes the rules-46/47 concession only on an invisible capture (an answered
+        claim or a survival claim already rode the last normal step); a police
+        settling from the thief's final owes a plain sealed STAY.
+        """
+        if self._session is None or self._session.engine is None:
+            return None
+        eng = self._session.engine
+        if eng.role is Role.THIEF:
+            if eng.self_captured() is None:
+                return None
+            self._session.apply_move("STAY")
+            return {
+                "move": "STAY",
+                "hint": "",
+                "state": eng.state_string(),
+                "claim_response": {"claim": [int(eng.position[0]), int(eng.position[1])],
+                                   "caught": True},
+            }
+        if self.terminal() is None:
+            return None
+        self._session.apply_move("STAY")
+        return {"move": "STAY", "hint": "", "state": eng.state_string()}
 
 
 @dataclass

@@ -128,6 +128,36 @@ def test_create_peer_custom_mode(sample_config: dict[str, object]) -> None:
     assert peer.config.mode == "counted"
 
 
+def test_create_peer_default_thief_reaches_real_brain(sample_config: dict[str, object]) -> None:
+    """Phase 2: create_peer with NO explicit strategy= wires the real ThiefBrain for
+    THIEF sub-games -- this test FAILS if create_peer is reverted to always building
+    StandInEngine (Blocker 2's other half: the real brain was dead code in production)."""
+    from thief_peer.wire import BrainDrivenEngine
+
+    peer = create_peer(sample_config, role=Role.THIEF, group_id="thief-brain-test")
+    assert isinstance(peer.engine, BrainDrivenEngine)
+
+    peer.engine.start_subgame(1, Role.THIEF, terms=peer.config.terms)
+    from thief_peer.strategy import ThiefBrain
+
+    assert isinstance(peer.engine._brain, ThiefBrain)
+
+    result = peer.engine.decide()
+    # The real brain's Decision carries verdict/fallback/reasoning metadata that the
+    # canned stand-in ("I am here", no verdict machinery) never produces.
+    assert result["verdict"] in ("truth", "lie")
+    assert "smell_grid" in result
+
+
+def test_create_peer_explicit_strategy_keeps_standin(sample_config: dict[str, object]) -> None:
+    """Backward compatibility: an explicit strategy= keeps the legacy stand-in path."""
+    from thief_peer.strategy import BaselineStrategy
+    from thief_peer.wire import StandInEngine
+
+    peer = create_peer(sample_config, role=Role.THIEF, strategy=BaselineStrategy())
+    assert isinstance(peer.engine, StandInEngine)
+
+
 def test_stand_in_engine_start_positions_from_terms() -> None:
     from thief_peer.wire import StandInEngine
 

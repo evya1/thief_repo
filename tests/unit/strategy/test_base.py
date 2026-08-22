@@ -115,6 +115,63 @@ class TestVisitedDiscipline:
         assert brain.visited == {(0, 0)}
 
 
+class TestHintFromDestination:
+    """Phase 5: the hint is generated from the CHOSEN action's destination, never the
+    pre-move position -- and never affects the already-selected move.
+    """
+
+    def test_hint_reflects_destination_not_pre_move_position(self) -> None:
+        rng = random.Random(0)
+        hw = HintWriter(Role.THIEF, rng, "New York", 15)
+        brain = _TestBrain(rng=rng, arena="New York", max_words=15, hint_writer=hw)
+        board = Board(size=7)
+        engine = GameEngine(board=board, role=Role.THIEF, position=(3, 3))
+        belief = _UniformBelief(board)
+        brain.reset((3, 3))
+
+        # _TestBrain always picks MOVE:N -> destination (2,3), never the pre-move (3,3).
+        seen_positions: list = []
+        original_say = hw.say
+
+        def spy_say(position, **kwargs):
+            seen_positions.append(position)
+            return original_say(position, **kwargs)
+
+        hw.say = spy_say  # type: ignore[method-assign]
+        decision = brain.decide(engine, belief, "", "New York")
+        assert decision.action == "MOVE:N"
+        assert seen_positions == [(2, 3)]
+
+    def test_max_words_respected_on_every_path(self) -> None:
+        """max_words=3 is respected regardless of which template/provider path fires."""
+        for seed in range(20):
+            rng = random.Random(seed)
+            hw = HintWriter(Role.THIEF, rng, "New York", 3)
+            brain = _TestBrain(rng=rng, arena="New York", max_words=3, hint_writer=hw)
+            board = Board(size=7)
+            engine = GameEngine(board=board, role=Role.THIEF, position=(3, 3))
+            belief = _UniformBelief(board)
+            decision = brain.decide(engine, belief, "", "New York")
+            assert len(decision.hint.split()) <= 3
+
+    def test_provider_failure_does_not_change_selected_move(self) -> None:
+        """A hint provider that raises must never alter the already-selected action."""
+
+        class BoomProvider:
+            def generate(self, role, position, arena, max_words, deadline):
+                raise RuntimeError("boom")
+
+        rng = random.Random(0)
+        hw = HintWriter(Role.THIEF, rng, "New York", 15, provider=BoomProvider())
+        brain = _TestBrain(rng=rng, arena="New York", max_words=15, hint_writer=hw)
+        board = Board(size=7)
+        engine = GameEngine(board=board, role=Role.THIEF, position=(3, 3))
+        belief = _UniformBelief(board)
+        decision = brain.decide(engine, belief, "", "New York")
+        assert decision.action == "MOVE:N"
+        assert decision.hint != ""
+
+
 class TestNoteEvidence:
     """SD-T4: note_evidence stores the last received field."""
 

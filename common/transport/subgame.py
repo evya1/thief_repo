@@ -115,8 +115,14 @@ def _our_move(engine, role: Role, is_thief: bool, lap: int, sub_game: int) -> tu
     commit = hash_commit(payload, nonce)
     record = dict(payload, nonce=nonce, commit=commit)
 
+    # The public projection of the sealed payload (built once above as `payload`).
+    # Only protocol-approved fields cross the wire: never `state` (numeric position),
+    # `verdict` (sealed for audit only), `reasoning`/`prompt_text`, or `visited`.
+    # `smell_grid` MUST be included -- it is how the receiver's belief board ever
+    # gets nonuniform evidence; its earlier absence here was the PR #34 review's
+    # Blocker 2 (a wired brain that never receives scent because nothing transmitted it).
     public_keys = {
-        "step", "sender", "hint", "barrier_placed",
+        "step", "sender", "hint", "smell_grid", "barrier_placed",
         "capture_claim", "claim_response", "win_claim",
     }
     message = {key: payload[key] for key in public_keys if key in payload}

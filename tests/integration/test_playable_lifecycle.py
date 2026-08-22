@@ -72,7 +72,8 @@ class EarlyCapturePoliceEngine(StandInEngine):
 
     def decide(self) -> dict:
         res = super().decide()
-        if self._engine and self._engine.role is Role.POLICE and self._engine.step == 2:
+        engine = self._session.engine if self._session else None
+        if engine and engine.role is Role.POLICE and engine.step == 2:
             res["capture_claim"] = [3, 3]
         return res
 
@@ -81,28 +82,10 @@ class FixedThiefEngine(StandInEngine):
     """Thief that stays at (3, 3)."""
 
     def decide(self) -> dict:
-        if self._engine is None:
+        if self._session is None or self._session.engine is None:
             raise RuntimeError("engine not started")
-        move = "STAY"
-        self._engine.apply_own_move(move)
-        res = {
-            "move": move,
-            "hint": "I am staying",
-            "state": self._engine.state_string(),
-        }
-        if self._pending_claim is not None:
-            ans = self._engine.answer_capture_claim(self._pending_claim)
-            res["claim_response"] = ans
-            self._pending_claim = None
-            if ans and ans.get("caught") is True:
-                self._thief_caught = True
-                res["win_claim"] = {"type": "capture"}
-                return res
-        if self._engine.self_captured():
-            res["win_claim"] = {"type": "capture"}
-        elif self._engine.survived():
-            res["win_claim"] = {"type": "survival"}
-        return res
+        self._session.apply_move("STAY")
+        return self._session.build_result(move="STAY", hint="I am staying")
 
 
 def test_early_capture_deterministic() -> None:
@@ -158,18 +141,18 @@ def test_survival_threshold_boundaries() -> None:
 
     # 35 threshold
     eng.start_subgame(1, Role.THIEF, terms={"max_steps": 35, "survival_threshold": 35})
-    assert eng._engine.step == 0
-    eng._engine.step = 34
-    assert eng._engine.survived() is False
-    eng._engine.step = 35
-    assert eng._engine.survived() is True
+    assert eng._session.engine.step == 0
+    eng._session.engine.step = 34
+    assert eng._session.engine.survived() is False
+    eng._session.engine.step = 35
+    assert eng._session.engine.survived() is True
 
     # 36 threshold
     eng.start_subgame(1, Role.THIEF, terms={"max_steps": 36, "survival_threshold": 36})
-    eng._engine.step = 35
-    assert eng._engine.survived() is False
-    eng._engine.step = 36
-    assert eng._engine.survived() is True
+    eng._session.engine.step = 35
+    assert eng._session.engine.survived() is False
+    eng._session.engine.step = 36
+    assert eng._session.engine.survived() is True
 
     # Divergent configuration must refuse
     with pytest.raises(ValueError, match="OPEN-011"):

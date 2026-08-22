@@ -21,6 +21,7 @@ class StrategySettings:
 
     thief_class: str | None = None
     thief_weights: dict[str, float] = field(default_factory=dict)
+    trash_talk: dict[str, object] = field(default_factory=dict)
 
 
 def load_strategy_settings(toml_data: dict) -> StrategySettings:
@@ -35,9 +36,11 @@ def load_strategy_settings(toml_data: dict) -> StrategySettings:
         if isinstance(thief_section, dict)
         else {}
     )
+    trash = toml_data.get("trash_talk", {})
     return StrategySettings(
         thief_class=str(thief_class) if thief_class is not None else None,
         thief_weights=weights,
+        trash_talk=trash if isinstance(trash, dict) else {},
     )
 
 
@@ -62,5 +65,6 @@ def assemble_strategy_config(
             "hint_max_words": world.get("hint_max_words", 15),
         },
         "strategy": strategy_cfg,
+        "trash_talk": dict(private.strategy.trash_talk),
         "scent_model": private.scent_model,
     }

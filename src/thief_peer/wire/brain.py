@@ -95,9 +95,17 @@ class BrainDrivenEngine:
     def observe_opponent(self, message: dict) -> None:
         """Absorb an opponent's turn message; drive the belief through apply_half_turn exactly
         once per valid received half-turn, in the canonical pinned order.
+
+        Semantic preflight FIRST: ``observe_barrier_and_claims`` is the only step that can
+        still refuse a wire-valid turn (an in-bounds barrier that breaks the signed quota, an
+        off-board declaration). It raises before it mutates, so a refused turn leaves the
+        board, the session and the belief exactly as they were — the canonical evidence order
+        below then runs only for a turn that is going to be applied.
         """
         if self._session is None or self._session.engine is None:
             return
+
+        self._session.observe_barrier_and_claims(message)
 
         if self._belief is not None:
             from thief_peer.belief.update import apply_half_turn
@@ -123,8 +131,6 @@ class BrainDrivenEngine:
             )
         if "hint" in message:
             self._last_opponent_hint = str(message["hint"])
-
-        self._session.observe_barrier_and_claims(message)
 
     def terminal(self) -> Outcome | None:
         if self._session is None:

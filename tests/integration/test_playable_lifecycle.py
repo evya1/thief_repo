@@ -67,12 +67,34 @@ def test_playable_lifecycle_real() -> None:
         assert row_a.steps > 0
 
 
+def _play_pair(channels, engines, configs, sub_game: int):
+    """Run one sub-game on both peers concurrently; return their two ledger rows."""
+    rows: dict[str, object] = {}
+    errors: list[Exception] = []
+
+    def run(key: str, index: int) -> None:
+        try:
+            rows[key] = play_subgame(channels[index], engines[index], configs[index], sub_game)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=("a", 0)), threading.Thread(target=run, args=("b", 1))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+    if errors:
+        raise RuntimeError(f"Errors in play_subgame: {errors}")
+    return rows["a"], rows["b"]
+
+
 class EarlyCapturePoliceEngine(StandInEngine):
     """Engine that issues a capture claim on step 2 at thief position."""
 
     def decide(self) -> dict:
         res = super().decide()
-        if self._engine and self._engine.role is Role.POLICE and self._engine.step == 2:
+        engine = self._session.engine if self._session else None
+        if engine and engine.role is Role.POLICE and engine.step == 2:
             res["capture_claim"] = [3, 3]
         return res
 
@@ -81,28 +103,10 @@ class FixedThiefEngine(StandInEngine):
     """Thief that stays at (3, 3)."""
 
     def decide(self) -> dict:
-        if self._engine is None:
+        if self._session is None or self._session.engine is None:
             raise RuntimeError("engine not started")
-        move = "STAY"
-        self._engine.apply_own_move(move)
-        res = {
-            "move": move,
-            "hint": "I am staying",
-            "state": self._engine.state_string(),
-        }
-        if self._pending_claim is not None:
-            ans = self._engine.answer_capture_claim(self._pending_claim)
-            res["claim_response"] = ans
-            self._pending_claim = None
-            if ans and ans.get("caught") is True:
-                self._thief_caught = True
-                res["win_claim"] = {"type": "capture"}
-                return res
-        if self._engine.self_captured():
-            res["win_claim"] = {"type": "capture"}
-        elif self._engine.survived():
-            res["win_claim"] = {"type": "survival"}
-        return res
+        self._session.apply_move("STAY")
+        return self._session.build_result(move="STAY", hint="I am staying")
 
 
 def test_early_capture_deterministic() -> None:
@@ -114,34 +118,8 @@ def test_early_capture_deterministic() -> None:
     eng_a = EarlyCapturePoliceEngine(Role.POLICE, board_size=7, seed=1)
     eng_b = FixedThiefEngine(Role.THIEF, board_size=7, seed=2)
 
-    row_a = row_b = None
-    errors: list[Exception] = []
+    row_a, row_b = _play_pair((ch_a, ch_b), (eng_a, eng_b), (cfg_a, cfg_b), 1)
 
-    def run_a():
-        nonlocal row_a
-        try:
-            row_a = play_subgame(ch_a, eng_a, cfg_a, 1)
-        except Exception as e:
-            errors.append(e)
-
-    def run_b():
-        nonlocal row_b
-        try:
-            row_b = play_subgame(ch_b, eng_b, cfg_b, 1)
-        except Exception as e:
-            errors.append(e)
-
-    t_a = threading.Thread(target=run_a)
-    t_b = threading.Thread(target=run_b)
-    t_a.start()
-    t_b.start()
-    t_a.join(timeout=10)
-    t_b.join(timeout=10)
-
-    if errors:
-        raise RuntimeError(f"Errors in play_subgame: {errors}")
-
-    assert row_a is not None and row_b is not None
     assert row_a.outcome == Outcome.CAPTURE
     assert row_b.outcome == Outcome.CAPTURE
     assert row_a.steps == 3
@@ -158,19 +136,55 @@ def test_survival_threshold_boundaries() -> None:
 
     # 35 threshold
     eng.start_subgame(1, Role.THIEF, terms={"max_steps": 35, "survival_threshold": 35})
-    assert eng._engine.step == 0
-    eng._engine.step = 34
-    assert eng._engine.survived() is False
-    eng._engine.step = 35
-    assert eng._engine.survived() is True
+    assert eng._session.engine.step == 0
+    eng._session.engine.step = 34
+    assert eng._session.engine.survived() is False
+    eng._session.engine.step = 35
+    assert eng._session.engine.survived() is True
 
     # 36 threshold
     eng.start_subgame(1, Role.THIEF, terms={"max_steps": 36, "survival_threshold": 36})
-    eng._engine.step = 35
-    assert eng._engine.survived() is False
-    eng._engine.step = 36
-    assert eng._engine.survived() is True
+    eng._session.engine.step = 35
+    assert eng._session.engine.survived() is False
+    eng._session.engine.step = 36
+    assert eng._session.engine.survived() is True
 
     # Divergent configuration must refuse
     with pytest.raises(ValueError, match="OPEN-011"):
         eng.start_subgame(1, Role.THIEF, terms={"max_steps": 34, "survival_threshold": 35})
+
+
+_capture_terms = dict(_full_terms, thief_start=[3, 3], cop_start=[4, 3])
+
+
+def test_alternating_role_capture_declared_by_this_peer() -> None:
+    """MEDIUM-8: a capture is structurally reachable when THIS repository holds
+    the POLICE role in an even (alternated) sub-game.
+
+    The peer under test is a plain ``StandInEngine`` whose natural role is THIEF;
+    ``role_for`` alternates it to POLICE in sub-game 2. Nothing here injects a
+    claim: the terms place the cop one step north of a thief holding its cell, so
+    the peer's own baseline selection walks onto it and ``build_result`` declares
+    the capture itself. The opponent answers honestly, both ledgers settle CAPTURE
+    at the same step, and both audits corroborate it. The MOVE SELECTOR is still
+    the documented SD-T7 stand-in — what changed is that the runtime protocol can
+    express a capture at all.
+    """
+    ch_a, ch_b = pair("Thief-as-police", "Police-as-thief")
+    cfg_a = PeerConfig(Role.THIEF, DummyBudgets(), _capture_terms, seed=1)
+    cfg_b = PeerConfig(Role.POLICE, DummyBudgets(), _capture_terms, seed=2)
+    assert role_for(Role.THIEF, 2) is Role.POLICE
+    eng_a = StandInEngine(Role.THIEF, board_size=7, seed=1)
+    eng_b = FixedThiefEngine(Role.POLICE, board_size=7, seed=2)
+
+    row_a, row_b = _play_pair((ch_a, ch_b), (eng_a, eng_b), (cfg_a, cfg_b), 2)
+
+    assert row_a.role is Role.POLICE
+    assert row_b.role is Role.THIEF
+    assert row_a.outcome is Outcome.CAPTURE
+    assert row_b.outcome is Outcome.CAPTURE
+    assert row_a.steps == row_b.steps
+    assert row_a.score_police == row_b.score_police == 20
+    assert row_a.score_thief == row_b.score_thief == 5
+    assert row_a.audit_ok is True
+    assert row_b.audit_ok is True

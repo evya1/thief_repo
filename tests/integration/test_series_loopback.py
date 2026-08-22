@@ -21,6 +21,21 @@ from common.transport.loopback import pair
 from common.transport.series import PeerConfig, SeriesResult, run_series
 from thief_peer.wire import StandInEngine
 
+_strategy_config = {
+    "seed": 42,
+    "world": {"map_area": "New York", "hint_max_words": 15},
+}
+
+
+class DeterministicEngine(StandInEngine):
+    """A deterministic turn engine (stand-in path) for the spine tests.
+
+    Subclasses StandInEngine so it implements the TurnEngine seam
+    (start_subgame/decide/observe_opponent/terminal) and always picks the
+    first legal move — keeping the spine deterministic and independent of
+    the strategy brain.
+    """
+
 
 class DummyBudgets:
     """Minimal budgets for testing."""

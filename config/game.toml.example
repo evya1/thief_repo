@@ -9,4 +9,20 @@ connect_timeout = 30.0
 poll_interval = 0.01
 
 [strategy]
-mode = "baseline"
+# Optional brain override: dotted "package.module:ClassName" (FR-T9).
+# Unset => the shipped ThiefBrain runs.
+# thief_class = "my_team.strategy:CustomThiefBrain"
+
+[strategy.thief]
+# PLANQ-008 approval baseline (PRD_thief_strategy.md §9); all optional.
+w_dist = 1.0
+w_mob = 0.25
+w_fresh = 0.15
+# w_trap penalises a destination flagged by the SHIPPED predicate
+# `strategy/scoring.py:trap_risk(mobility <= 1)`: at most one orthogonal exit
+# left, so one further barrier could seal it. That is a conservative POLICY
+# heuristic, not the domain's rule-47 capture test (`Board.boxed_in`, zero
+# exits) — `boxed_in` can never be true at a destination just moved to, since
+# the vacated origin is still an open neighbour.
+w_trap = 5.0
+min_confidence = 0.15

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.thief_peer.wire.config import (
+from thief_peer.wire.config import (
     PrivateConfig,
     load_private,
     verify_terms_closed,

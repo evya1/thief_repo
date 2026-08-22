@@ -48,7 +48,8 @@ class TestSealedPublicProjection:
         message, record = _our_move(engine, Role.THIEF, is_thief=True, lap=1, sub_game=1)
 
         # The commit hash is recomputable from the sealed payload + nonce.
-        sealed_payload = {k: v for k, v in record.items() if k not in ("nonce", "commit")}
+        # reference-v3 nests the signed payload under ``record["payload"]``.
+        sealed_payload = record["payload"]
         recomputed = hash_commit(sealed_payload, record["nonce"])
         assert recomputed == record["commit"] == message["commit"]
 
@@ -57,12 +58,13 @@ class TestSealedPublicProjection:
         engine = _FixedMoveEngine(session)
         _message, record = _our_move(engine, Role.THIEF, is_thief=True, lap=1, sub_game=1)
 
-        assert record["reasoning"] == "internal reasoning text"
-        assert record["prompt_text"] == "internal prompt text"
-        assert record["verdict"] == "lie"
-        assert record["response_seconds"] == 0.002
-        assert "state" in record  # own numeric position, sealed-only
-        assert "smell_grid" in record
+        signed = record["payload"]
+        assert signed["reasoning"] == "internal reasoning text"
+        assert signed["prompt_text"] == "internal prompt text"
+        assert signed["verdict"] == "lie"
+        assert signed["response_seconds"] == 0.002
+        assert "state" in signed  # own numeric position, sealed-only
+        assert "smell_grid" in signed
 
     def test_public_message_excludes_private_fields(self) -> None:
         session = _thief_session()

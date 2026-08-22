@@ -6,7 +6,7 @@ version: 0.1
 derived_from: PLAN-THIEF-STRATEGY@0.1 · PRD-THIEF-STRATEGY@0.1
 applies_to: thief_repo only (role-owned)
 owner: orchestrator
-updated: 2026-08-21 (stage opened; prerequisites assumed delivered per stage entry criteria — C01 domain+config T003/T004, scent model+lock T005, orchestrator FSM+turn loop T010, MCP transport T009, integrity core T008; belief board T006 is the sibling stage-3 work and an entry criterion for TS-04)
+updated: 2026-08-22 (review remediation T042 landed: HIGH-2 hostile-turn atomicity and MEDIUM-8 opposite-role capture closed — see § Review remediation below; stage opened 2026-08-21; prerequisites assumed delivered per stage entry criteria — C01 domain+config T003/T004, scent model+lock T005, orchestrator FSM+turn loop T010, MCP transport T009, integrity core T008; belief board T006 is the sibling stage-3 work and an entry criterion for TS-04)
 ---
 
 # TODO — Thief Strategy (Stage 3, role-specific part)
@@ -236,3 +236,48 @@ passed — stage done.
 - **Assumed delivered (stage entry criteria):** C01 domain + config (T003/T004), scent
   model + lock (T005), orchestrator FSM + turn loop (T010), MCP transport + turn frames
   (T009), integrity core (T008).
+
+## Review remediation (independent review, 2026-08-22) — T042
+
+Recorded by the orchestrator **after** the code evidence was final. Code SHAs on
+`claude/police-thief-review-remediation-v0k8tg`, branched from `thief-strategy@7105f27`:
+
+| Step | SHA | What it closed |
+|---|---|---|
+| T1 | `429b8d6130e29840818a7bf6901cad25e7307aa2` | HIGH-2 — hostile inbound turns refused before any mutation; `common/` source of truth for this wave |
+| T2 | `53869c2fb024ee19694c121c224d66df704ec270` | MEDIUM-8 — a POLICE-role sub-game can declare and settle a capture; LOW-11 (thief half) |
+| Boundary | `a5c9e06b1d69123c75d8df66f2dc4f08f5565682` | sub-game boundary leak found by the real two-process run once captures became reachable |
+
+Measured evidence at `53869c2` (commands and full results are in the task handoffs):
+
+- `uv run pytest -q` — 976 passed (baseline at the reviewed head: 870 collected).
+- `uv run ruff check .` — clean. `uv run python scripts/run_quality_gates.py` — all 7 gates pass.
+- `uv run python scripts/check_line_cap.py` — 144 files within the cap. `wire/session.py`
+  went 160 → 143 by extracting `wire/capture_exchange.py`; `common/transport/subgame.py`
+  went 193 → 142 by extracting `common/transport/turnseal.py`.
+- KPI: ThiefBrain vs the capturing-police double 45/45 survivals against a 60% gate; the
+  always-STAY negative control still fails at 0/24 with captures > 0, so the harness is not
+  vacuous. No threshold was lowered and no seed count reduced.
+- `common/` is byte-identical to `police_repo` (identical git blob hashes for every tracked
+  path under `common/`).
+
+Scope explicitly **not** touched: OPEN-011 termination semantics, group scoring, reporting,
+GUI, branch hygiene. **ADR-007 is unchanged and `T041` remains evaluation-only and blocked** —
+nothing under `src/` references `police_peer`, `PoliceBrain`, or a `reference_police` module.
+
+### Newly discovered work (not closed here — needs its own task)
+
+1. `common/transport/audit.py` cross-checks only the THIEF's `win_claim`. A POLICE peer's
+   `capture_claim` is never checked against that peer's own sealed `state` string, so a cop
+   claiming a cell it is not standing on is not caught at audit. Now reachable from both
+   sides. Cross-repo: `common/` must stay byte-identical, so it cannot be fixed one-sidedly.
+2. No POLICE-role move selector in this repository ever passes a `barrier_cell`, so
+   `barrier_placed` remains unreachable in this repo's own play. That is the documented
+   SD-T7 policy gap, not a protocol gap — `build_result` can now express it and the unit
+   tests prove it.
+3. The KPI's capturing-police double is weak enough that ThiefBrain scores 100% against it.
+   The gate is met with large headroom; the double's pursuit, not the gate, limits TC-T17's
+   discriminating power.
+4. `docs/PLAN_thief_strategy.md` §5.2 step 4 was reconciled in this closeout: the pseudo-code
+   said `hint_writer.say(state.position, …)` while the shipped code generates the hint from
+   the post-move destination.

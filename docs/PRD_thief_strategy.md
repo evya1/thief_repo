@@ -615,7 +615,7 @@ Private `config/game.toml` (local only, never signed, never sent):
 w_dist = 1.0          # distance from threat, manhattan(dest, threat) / board.size
 w_mob = 0.25          # mobility: legal orthogonal options at dest, / 4
 w_fresh = 0.15        # freshness: dest not in visited (orthogonal MOVE only)
-w_trap = 5.0          # trap: dest would be boxed_in next turn (rule-47 capture)
+w_trap = 5.0          # trap: trap_risk(dest) — at most one orthogonal exit left
 # Belief confidence floor (FR-T2): below it, the diffuse fallback engages.
 min_confidence = 0.15
 ```

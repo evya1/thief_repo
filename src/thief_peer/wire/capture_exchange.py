@@ -111,8 +111,15 @@ def absorb_declarations(
         engine.observe_barrier(message["barrier_placed"])
     claim: tuple[int, int] | None = None
     judged_at: Cell | None = None
-    if engine.role is Role.THIEF and "capture_claim" in message:
-        claim = _as_cell(message["capture_claim"])
+    # Gate on the VALUE, not on key presence: the wire schema declares
+    # ``capture_claim`` as "[row, col] ... or null", so an encoder that always
+    # emits the key with an explicit null is conformant and validate_turn
+    # accepts it. Keying off presence made that turn crash on _as_cell(None)
+    # AFTER the barrier above had already been absorbed — a partially applied
+    # turn, which is exactly what this preflight exists to prevent (FR-25).
+    declared = message.get("capture_claim")
+    if engine.role is Role.THIEF and declared is not None:
+        claim = _as_cell(declared)
         judged_at = engine.position
     terminal = _opponent_terminal(message) if engine.role is Role.POLICE else None
     return claim, judged_at, terminal

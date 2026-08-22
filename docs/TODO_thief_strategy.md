@@ -248,9 +248,9 @@ Recorded by the orchestrator **after** the code evidence was final. Code SHAs on
 | T2 | `53869c2fb024ee19694c121c224d66df704ec270` | MEDIUM-8 — a POLICE-role sub-game can declare and settle a capture; LOW-11 (thief half) |
 | Boundary | `a5c9e06b1d69123c75d8df66f2dc4f08f5565682` | sub-game boundary leak found by the real two-process run once captures became reachable |
 
-Measured evidence at `53869c2` (commands and full results are in the task handoffs):
+Measured evidence at branch head `ed44b67` — the last commit of the wave, after the boundary fix `a5c9e06` (an earlier draft of this paragraph cited `53869c2`, which predates that commit):
 
-- `uv run pytest -q` — 976 passed (baseline at the reviewed head: 870 collected).
+- `uv run pytest -q` — exit 0, 979 tests collected (baseline at the reviewed head: 870).
 - `uv run ruff check .` — clean. `uv run python scripts/run_quality_gates.py` — all 7 gates pass.
 - `uv run python scripts/check_line_cap.py` — 144 files within the cap. `wire/session.py`
   went 160 → 143 by extracting `wire/capture_exchange.py`; `common/transport/subgame.py`

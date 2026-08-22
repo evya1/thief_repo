@@ -67,6 +67,27 @@ def test_playable_lifecycle_real() -> None:
         assert row_a.steps > 0
 
 
+def _play_pair(channels, engines, configs, sub_game: int):
+    """Run one sub-game on both peers concurrently; return their two ledger rows."""
+    rows: dict[str, object] = {}
+    errors: list[Exception] = []
+
+    def run(key: str, index: int) -> None:
+        try:
+            rows[key] = play_subgame(channels[index], engines[index], configs[index], sub_game)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=("a", 0)), threading.Thread(target=run, args=("b", 1))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+    if errors:
+        raise RuntimeError(f"Errors in play_subgame: {errors}")
+    return rows["a"], rows["b"]
+
+
 class EarlyCapturePoliceEngine(StandInEngine):
     """Engine that issues a capture claim on step 2 at thief position."""
 
@@ -97,34 +118,8 @@ def test_early_capture_deterministic() -> None:
     eng_a = EarlyCapturePoliceEngine(Role.POLICE, board_size=7, seed=1)
     eng_b = FixedThiefEngine(Role.THIEF, board_size=7, seed=2)
 
-    row_a = row_b = None
-    errors: list[Exception] = []
+    row_a, row_b = _play_pair((ch_a, ch_b), (eng_a, eng_b), (cfg_a, cfg_b), 1)
 
-    def run_a():
-        nonlocal row_a
-        try:
-            row_a = play_subgame(ch_a, eng_a, cfg_a, 1)
-        except Exception as e:
-            errors.append(e)
-
-    def run_b():
-        nonlocal row_b
-        try:
-            row_b = play_subgame(ch_b, eng_b, cfg_b, 1)
-        except Exception as e:
-            errors.append(e)
-
-    t_a = threading.Thread(target=run_a)
-    t_b = threading.Thread(target=run_b)
-    t_a.start()
-    t_b.start()
-    t_a.join(timeout=10)
-    t_b.join(timeout=10)
-
-    if errors:
-        raise RuntimeError(f"Errors in play_subgame: {errors}")
-
-    assert row_a is not None and row_b is not None
     assert row_a.outcome == Outcome.CAPTURE
     assert row_b.outcome == Outcome.CAPTURE
     assert row_a.steps == 3
@@ -157,3 +152,39 @@ def test_survival_threshold_boundaries() -> None:
     # Divergent configuration must refuse
     with pytest.raises(ValueError, match="OPEN-011"):
         eng.start_subgame(1, Role.THIEF, terms={"max_steps": 34, "survival_threshold": 35})
+
+
+_capture_terms = dict(_full_terms, thief_start=[3, 3], cop_start=[4, 3])
+
+
+def test_alternating_role_capture_declared_by_this_peer() -> None:
+    """MEDIUM-8: a capture is structurally reachable when THIS repository holds
+    the POLICE role in an even (alternated) sub-game.
+
+    The peer under test is a plain ``StandInEngine`` whose natural role is THIEF;
+    ``role_for`` alternates it to POLICE in sub-game 2. Nothing here injects a
+    claim: the terms place the cop one step north of a thief holding its cell, so
+    the peer's own baseline selection walks onto it and ``build_result`` declares
+    the capture itself. The opponent answers honestly, both ledgers settle CAPTURE
+    at the same step, and both audits corroborate it. The MOVE SELECTOR is still
+    the documented SD-T7 stand-in — what changed is that the runtime protocol can
+    express a capture at all.
+    """
+    ch_a, ch_b = pair("Thief-as-police", "Police-as-thief")
+    cfg_a = PeerConfig(Role.THIEF, DummyBudgets(), _capture_terms, seed=1)
+    cfg_b = PeerConfig(Role.POLICE, DummyBudgets(), _capture_terms, seed=2)
+    assert role_for(Role.THIEF, 2) is Role.POLICE
+    eng_a = StandInEngine(Role.THIEF, board_size=7, seed=1)
+    eng_b = FixedThiefEngine(Role.POLICE, board_size=7, seed=2)
+
+    row_a, row_b = _play_pair((ch_a, ch_b), (eng_a, eng_b), (cfg_a, cfg_b), 2)
+
+    assert row_a.role is Role.POLICE
+    assert row_b.role is Role.THIEF
+    assert row_a.outcome is Outcome.CAPTURE
+    assert row_b.outcome is Outcome.CAPTURE
+    assert row_a.steps == row_b.steps
+    assert row_a.score_police == row_b.score_police == 20
+    assert row_a.score_thief == row_b.score_thief == 5
+    assert row_a.audit_ok is True
+    assert row_b.audit_ok is True

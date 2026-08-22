@@ -47,11 +47,6 @@ _terms = {
     "num_games": 6,
 }
 
-_strategy_config = {
-    "seed": 42,
-    "world": {"map_area": "New York", "hint_max_words": 15},
-}
-
 
 def _terminal_final(session: SubgameSession | None) -> dict | None:
     """The game-ending final an engine owes after settling, or None.
@@ -106,14 +101,15 @@ class GreedyCapturingPolice:
         self.terms = terms
         self.thief_position_fn = thief_position_fn
         self._session: SubgameSession | None = None
-        self._claimed = False
 
     def start_subgame(self, sub_game: int, role: Role, terms: dict | None = None) -> None:
         self._session = SubgameSession(natural_role=self.natural_role, board_size=self.board_size, seed=self.seed)
         self._session.start(sub_game, role, terms=terms or self.terms)
-        self._claimed = False
 
     def decide(self) -> dict:
+        """Pursue. The claim itself comes from the shared runtime session, which
+        now declares this peer's own post-action cell on every POLICE non-barrier
+        turn (MEDIUM-8) -- the double contributes pursuit, not protocol."""
         assert self._session is not None and self._session.engine is not None
         engine = self._session.engine
         target = self.thief_position_fn() if self.thief_position_fn else engine.position
@@ -123,11 +119,7 @@ class GreedyCapturingPolice:
             key=lambda a: manhattan(destination(engine.board, engine.position, a), target),
         )
         self._session.apply_move(best)
-        res = self._session.build_result(move=best, hint="closing in")
-        if not self._claimed and self._session.engine.position == target:
-            res["capture_claim"] = list(self._session.engine.position)
-            self._claimed = True
-        return res
+        return self._session.build_result(move=best, hint="closing in")
 
     def observe_opponent(self, message: dict) -> None:
         if self._session is not None and self._session.engine is not None:

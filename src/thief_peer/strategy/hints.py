@@ -157,11 +157,15 @@ class HintWriter:
         """Generic non-landmark hint line when no landmark applies."""
         return "I'm somewhere in the city."
 
-    @staticmethod
-    def _cap(text: str, max_words: int | None = None) -> str:
-        """Truncate to max_words words (default 15 from shared config)."""
-        limit = max_words or 15
+    def _cap(self, text: str) -> str:
+        """Truncate to THIS instance's configured ``max_words``.
+
+        No silent fallback to a static default: every path (template and
+        provider) truncates to ``self.max_words`` exactly, whatever value
+        this writer was constructed with (a bug previously let a
+        differently-configured writer silently cap at the hardcoded 15).
+        """
         words = text.split()
-        if len(words) <= limit:
+        if len(words) <= self.max_words:
             return text
-        return " ".join(words[:limit])
+        return " ".join(words[: self.max_words])

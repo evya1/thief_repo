@@ -13,8 +13,8 @@ import random
 from common.domain.board import Board
 from common.domain.rules import GameEngine
 from common.domain.scoring import Role
-from src.thief_peer.strategy import resolve_brain
-from src.thief_peer.strategy.thief import ThiefBrain
+from thief_peer.strategy import resolve_brain
+from thief_peer.strategy.thief import ThiefBrain
 
 
 class _UniformBelief:
@@ -96,10 +96,10 @@ class TestABFixtures:
         """Same brain, swapped belief => different actions in evasion fixtures."""
         rng1 = random.Random(42)
         rng2 = random.Random(42)
-        hw1 = __import__("src.thief_peer.strategy.hints", fromlist=["HintWriter"]).HintWriter(
+        hw1 = __import__("thief_peer.strategy.hints", fromlist=["HintWriter"]).HintWriter(
             Role.THIEF, rng1, "New York", 15
         )
-        hw2 = __import__("src.thief_peer.strategy.hints", fromlist=["HintWriter"]).HintWriter(
+        hw2 = __import__("thief_peer.strategy.hints", fromlist=["HintWriter"]).HintWriter(
             Role.THIEF, rng2, "New York", 15
         )
         brain1 = ThiefBrain(rng=rng1, arena="New York", max_words=15, hint_writer=hw1)

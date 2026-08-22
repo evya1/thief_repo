@@ -18,6 +18,19 @@ from common.config import ConfigError, load_config
 from common.transport.terms import TERMS_KEYS, project_terms
 from thief_peer.scent.lock import model_lock_hash
 from thief_peer.scent.model import DEFAULT_MODEL, MODELS
+from thief_peer.wire.strategy_settings import StrategySettings, load_strategy_settings
+
+__all__ = [
+    "Budgets",
+    "PrivateConfig",
+    "StrategySettings",
+    "assemble_peer_config",
+    "build_budgets",
+    "build_peer_config",
+    "load_private",
+    "peer_locks",
+    "verify_terms_closed",
+]
 
 
 @dataclass
@@ -26,7 +39,8 @@ class PrivateConfig:
 
     ``min_center_intensity`` is the only wire-relevant value permitted here
     (FR-11, non-official).  All other fields are purely local — peer identity,
-    budgets, transport settings — and never cross the network.
+    budgets, transport settings, and the strategy selector/weights — and
+    never cross the network.
     """
 
     min_center_intensity: float = 0.5
@@ -34,6 +48,7 @@ class PrivateConfig:
     seed: int = 0
     budgets: dict[str, float] = field(default_factory=dict)
     scent_model: str = DEFAULT_MODEL
+    strategy: StrategySettings = field(default_factory=StrategySettings)
 
 
 def load_private(path: Path | str) -> PrivateConfig:
@@ -54,6 +69,7 @@ def load_private(path: Path | str) -> PrivateConfig:
         seed=int(toml_data.get("seed", 0)),
         budgets={k: float(v) for k, v in toml_data.get("network", {}).items()},
         scent_model=scent_model,
+        strategy=load_strategy_settings(toml_data),
     )
 
 

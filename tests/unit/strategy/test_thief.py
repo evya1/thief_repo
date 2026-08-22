@@ -12,7 +12,7 @@ from __future__ import annotations
 from common.domain.board import Board
 from common.domain.rules import GameEngine
 from common.domain.scoring import Role
-from src.thief_peer.strategy.thief import ThiefBrain
+from thief_peer.strategy.thief import ThiefBrain
 
 
 class _UniformBelief:

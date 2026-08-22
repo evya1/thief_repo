@@ -1,4 +1,10 @@
-"""Strategy protocol and deterministic baseline implementation."""
+"""Strategy protocol and deterministic baseline implementation.
+
+Lives inside the ``strategy`` package (not a sibling ``strategy.py`` module)
+so the package is the single, unambiguous ``thief_peer.strategy`` import
+target — a co-existing ``strategy.py`` module shadowed by this package broke
+``import thief_peer`` outright (PR #34 review, Blocker 1).
+"""
 
 from __future__ import annotations
 

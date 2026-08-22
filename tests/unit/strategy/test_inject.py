@@ -13,9 +13,9 @@ import sys
 import pytest
 
 from common.domain.scoring import Role
-from src.thief_peer.strategy import resolve_brain, resolve_brain_cls
-from src.thief_peer.strategy.base import BrainBase
-from src.thief_peer.strategy.thief import ThiefBrain
+from thief_peer.strategy import resolve_brain, resolve_brain_cls
+from thief_peer.strategy.base import BrainBase
+from thief_peer.strategy.thief import ThiefBrain
 
 
 class _FakeModule:

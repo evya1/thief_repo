@@ -9,4 +9,14 @@ connect_timeout = 30.0
 poll_interval = 0.01
 
 [strategy]
-mode = "baseline"
+# Optional brain override: dotted "package.module:ClassName" (FR-T9).
+# Unset => the shipped ThiefBrain runs.
+# thief_class = "my_team.strategy:CustomThiefBrain"
+
+[strategy.thief]
+# PLANQ-008 approval baseline (PRD_thief_strategy.md §9); all optional.
+w_dist = 1.0
+w_mob = 0.25
+w_fresh = 0.15
+w_trap = 5.0
+min_confidence = 0.15

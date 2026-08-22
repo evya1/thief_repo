@@ -10,8 +10,8 @@ from __future__ import annotations
 import random
 
 from common.domain.board import Cell, chebyshev
-from src.thief_peer.belief.hints import parse_landmarks
-from src.thief_peer.strategy.hints import HintWriter
+from thief_peer.belief.hints import parse_landmarks
+from thief_peer.strategy.hints import HintWriter
 
 
 class TestTemplateHint:
@@ -53,6 +53,24 @@ class TestTemplateHint:
         lies = sum(1 for _ in range(1000) if hw.say((3, 3))[1] == "lie")
         rate = lies / 1000
         assert 0.30 <= rate <= 0.50, f"lie rate {rate:.3f} out of bounds"
+
+    def test_word_cap_respects_instance_config_not_hardcoded_fifteen(self) -> None:
+        """A writer configured with max_words != 15 must never fall back to 15."""
+        rng = random.Random(0)
+        hw = HintWriter(role="thief", rng=rng, arena="New York", max_words=2)
+        for _ in range(50):
+            hint, _ = hw.say((3, 3))
+            assert len(hint.split()) <= 2
+
+    def test_provider_path_also_respects_instance_cap(self) -> None:
+        class LongProvider:
+            def generate(self, role, position, arena, max_words, deadline):
+                return {"message": "one two three four five six seven", "verdict": "truth"}
+
+        rng = random.Random(0)
+        hw = HintWriter(role="thief", rng=rng, arena="New York", max_words=2, provider=LongProvider())
+        hint, _ = hw.say((3, 3))
+        assert len(hint.split()) <= 2
 
     def test_deterministic_per_seed(self) -> None:
         """Same seed => identical hint sequence."""

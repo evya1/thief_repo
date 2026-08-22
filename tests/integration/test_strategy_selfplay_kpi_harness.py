@@ -1,6 +1,14 @@
-"""KPI harness continuation: run_kpi_series and test functions.
+"""KPI harness: run_kpi_series against a police that can actually capture.
 
-TC-T17: survival vs reference PoliceBrain >= 60%; vs stand-in >= 30% (labeled).
+TC-T17, rewritten per PR #34 review H5 (the previous "reference" opponents
+never placed a barrier and never issued a capture claim, so any policy --
+including always-STAY -- passed the old 60%/30% gates). Every required THIEF
+sub-game across the series is evaluated (never ``any()``), the thief under
+test runs the real coordinator+brain (``BrainDrivenEngine`` running the
+actual ``ThiefBrain``, the same composition ``create_peer`` wires in
+production), and a mandatory negative control (an always-STAY thief) must
+FAIL against the same opponent, with the failure coming from an actual
+recorded CAPTURE outcome.
 """
 
 from __future__ import annotations
@@ -9,119 +17,82 @@ from common.domain.scoring import Outcome, Role
 from common.transport.loopback import pair
 from common.transport.series import PeerConfig, run_series
 from tests.integration.test_strategy_selfplay_kpi import (
+    AlwaysStayThiefEngine,
     DummyBudgets,
+    GreedyCapturingPolice,
     KPIResult,
-    ReferencePoliceBrain,
-    StandInPoliceEngine,
     _strategy_config,
     _terms,
 )
+from thief_peer.wire.brain import BrainDrivenEngine
 
 
-def run_kpi_series(n_games: int = 20, seed: int = 42) -> KPIResult:
-    """Run n_games series of 6 sub-games each against a reference opponent.
-
-    The default is sized for CI: each series runs the full threaded loopback
-    (six sub-games, up to 35 steps each), which costs ~2s per game, so 200
-    games would take minutes. Survival vs the stand-in baselines is near-100%
-    in either case, well above the 60%/30% thresholds, so a smaller N keeps
-    the assertion meaningful without stalling the suite.
-    """
-    from src.thief_peer.wire import BrainDrivenEngine
-
-    total_survived = 0
-    total_captured = 0
+def _run_against_capturing_police(thief_engine_factory, n_games: int, seed: int) -> KPIResult:
+    """Play n_games full series against GreedyCapturingPolice; evaluate EVERY
+    THIEF-role sub-game across every game (not any() across the series)."""
+    survived = 0
+    captured = 0
     capture_rounds: list[int] = []
+    total_thief_subgames = 0
 
     for game_seed in range(n_games):
         a, b = pair("Police", "Thief")
-        config_a = PeerConfig(
-            natural_role=Role.POLICE,
-            budgets=DummyBudgets(),
-            terms=_terms,
-            seed=seed + game_seed,
+        config_a = PeerConfig(Role.POLICE, DummyBudgets(), _terms, seed=seed + game_seed)
+        config_b = PeerConfig(Role.THIEF, DummyBudgets(), _terms, seed=seed + game_seed)
+
+        thief_engine = thief_engine_factory(seed + game_seed)
+
+        def thief_position(_engine=thief_engine) -> tuple[int, int]:
+            session = getattr(_engine, "_session", None)
+            if session is not None and session.engine is not None:
+                return session.engine.position
+            return (3, 3)
+
+        police_engine = GreedyCapturingPolice(
+            Role.POLICE, seed=seed + game_seed, terms=_terms, thief_position_fn=thief_position,
         )
-        config_b = PeerConfig(
-            natural_role=Role.THIEF,
-            budgets=DummyBudgets(),
-            terms=_terms,
-            seed=seed + game_seed,
-        )
 
-        engine_a = ReferencePoliceBrain(seed=seed + game_seed)
-        engine_b = BrainDrivenEngine(Role.THIEF, config=_strategy_config, seed=seed + game_seed)
+        _result_a, result_b = run_series(a, b, config_a, config_b, police_engine, thief_engine)
 
-        result_a, result_b = run_series(a, b, config_a, config_b, engine_a, engine_b)
-
-        thief_survived = any(
-            row.outcome is Outcome.SURVIVAL and row.role is Role.THIEF
-            for row in result_b.ledger
-        )
-        if thief_survived:
-            total_survived += 1
-        else:
-            total_captured += 1
-            for row in result_b.ledger:
-                if row.outcome is Outcome.CAPTURE and row.role is Role.THIEF:
-                    capture_rounds.append(row.steps)
-                    break
-
-    total = n_games
-    median_rounds = 0.0
-    if capture_rounds:
-        sorted_rounds = sorted(capture_rounds)
-        n = len(sorted_rounds)
-        median_rounds = sorted_rounds[n // 2] if n % 2 == 1 else (sorted_rounds[n // 2 - 1] + sorted_rounds[n // 2]) / 2
+        for row in result_b.ledger:
+            if row.role is not Role.THIEF:
+                continue
+            total_thief_subgames += 1
+            if row.outcome is Outcome.SURVIVAL:
+                survived += 1
+            elif row.outcome is Outcome.CAPTURE:
+                captured += 1
+                capture_rounds.append(row.steps)
 
     return KPIResult(
-        total=total,
-        thief_survived=total_survived,
-        thief_captured=total_captured,
-        median_rounds_to_capture=median_rounds,
+        total_thief_subgames=total_thief_subgames,
+        survived=survived,
+        captured=captured,
+        capture_rounds=capture_rounds,
     )
 
 
-def test_kpi_vs_reference_police() -> None:
-    """TC-T17: survival vs reference PoliceBrain >= 60%."""
-    result = run_kpi_series(n_games=20, seed=42)
-    survival_rate = result.thief_survived / result.total
-    print(f"\nKPI vs reference PoliceBrain: {result.thief_survived}/{result.total} = {survival_rate:.1%}")
-    print(f"Median rounds to capture: {result.median_rounds_to_capture}")
-    assert survival_rate >= 0.60, f"Survival rate {survival_rate:.1%} < 60%"
+def test_kpi_vs_capturing_police() -> None:
+    """TC-T17: survival vs a police opponent CAPABLE OF CAPTURING >= 60%, evaluated
+    over every required THIEF sub-game (not any() over the series)."""
+    result = _run_against_capturing_police(
+        lambda seed: BrainDrivenEngine(Role.THIEF, config=_strategy_config, seed=seed),
+        n_games=15, seed=42,
+    )
+    rate = result.survived / result.total_thief_subgames
+    print(f"\nThiefBrain vs capturing police: {result.survived}/{result.total_thief_subgames} = {rate:.1%}")
+    assert result.total_thief_subgames >= 15  # sanity: every game contributed sub-games
+    assert rate >= 0.60, f"survival rate {rate:.1%} < 60%"
 
 
-def test_kpi_vs_standin() -> None:
-    """TC-T17: survival vs stand-in >= 30% (labeled baseline)."""
-    from src.thief_peer.wire import BrainDrivenEngine
-
-    total_survived = 0
-    n_games = 20
-    seed = 42
-
-    for game_seed in range(n_games):
-        a, b = pair("Police", "Thief")
-        config_a = PeerConfig(
-            natural_role=Role.POLICE,
-            budgets=DummyBudgets(),
-            terms=_terms,
-            seed=seed + game_seed,
-        )
-        config_b = PeerConfig(
-            natural_role=Role.THIEF,
-            budgets=DummyBudgets(),
-            terms=_terms,
-            seed=seed + game_seed,
-        )
-        engine_a = StandInPoliceEngine()
-        engine_b = BrainDrivenEngine(Role.THIEF, config=_strategy_config, seed=seed + game_seed)
-        result_a, result_b = run_series(a, b, config_a, config_b, engine_a, engine_b)
-        thief_survived = any(
-            row.outcome is Outcome.SURVIVAL and row.role is Role.THIEF
-            for row in result_b.ledger
-        )
-        if thief_survived:
-            total_survived += 1
-
-    survival_rate = total_survived / n_games
-    print(f"\nKPI vs stand-in (labeled): {total_survived}/{n_games} = {survival_rate:.1%}")
-    assert survival_rate >= 0.30, f"Survival rate {survival_rate:.1%} < 30%"
+def test_kpi_negative_control_always_stay_fails() -> None:
+    """Mandatory negative control: an always-STAY thief must FAIL this KPI, and the
+    failure must come from an ACTUAL recorded capture, not from recognizing the class."""
+    result = _run_against_capturing_police(
+        lambda seed: AlwaysStayThiefEngine(Role.THIEF, seed=seed),
+        n_games=8, seed=42,
+    )
+    rate = result.survived / result.total_thief_subgames
+    print(f"\nalways-STAY vs capturing police: {result.survived}/{result.total_thief_subgames} = {rate:.1%}")
+    assert result.captured > 0, "the negative control must actually be captured, not merely score low"
+    assert rate < 0.60, f"always-STAY unexpectedly passed the KPI at {rate:.1%}"

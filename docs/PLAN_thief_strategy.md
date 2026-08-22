@@ -284,7 +284,7 @@ class ThiefBrain(BrainBase):
         d        = manhattan(dest, threat)                      # MAXIMIZE
         mobility = len(state.board.legal_moves(dest, barriers)) - 1
         fresh    = 1 if (action != "STAY" and dest not in self.visited) else 0
-        trap     = 1 if state.board.boxed_in(dest, barriers) else 0
+        trap     = 1 if trap_risk(orthogonal_mobility(dest, barriers)) else 0  # <=1 exit; NOT boxed_in
         score    = w_dist * d / size + w_mob * mobility / 4
                    + w_fresh * fresh - w_trap * trap
 
@@ -294,7 +294,9 @@ class ThiefBrain(BrainBase):
 ```
 
 All inputs to `_decide_move` are verified repo APIs: `Board.legal_moves(cell, barriers)`
-(orthogonal in fixed order + `STAY` last), `Board.step`, `Board.boxed_in`,
+(orthogonal in fixed order + `STAY` last), `Board.step`,
+`scoring.orthogonal_mobility`/`scoring.trap_risk` (the strategy-level trap-risk predicate —
+`Board.boxed_in` remains the unchanged domain rule-47 terminal check and is not called here),
 `manhattan(a, b)` (`common/domain/board.py`); `GameEngine.legal_moves()`, `.position`,
 `.barriers`, `.board`, `.step` (`common/domain/rules.py`); `hottest(field)` (
 `thief_peer/scent/model.py`, lexicographic tie-break); belief queries per FR-B6.

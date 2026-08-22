@@ -7,11 +7,14 @@ fallback is True iff legal set was ["STAY"].
 from __future__ import annotations
 
 import random
+from unittest.mock import patch
 
 from common.domain.board import Board
 from common.domain.rules import GameEngine
 from common.domain.scoring import Role
 from thief_peer.strategy import resolve_brain
+from thief_peer.strategy import thief as thief_module
+from thief_peer.strategy.scoring import select_thief_action
 
 
 class _UniformBelief:
@@ -102,3 +105,53 @@ def test_property_legality() -> None:
     assert legal_violations == 0, f"Legal violations: {legal_violations}"
     assert barrier_violations == 0, f"Barrier violations: {barrier_violations}"
     assert fallback_violations == 0, f"Fallback violations: {fallback_violations}"
+
+
+def test_candidates_are_produced_by_the_real_legal_move_api() -> None:
+    """Guards the trap-risk repair's root cause: scoring must never be fed a
+    hand-rolled or synthetic candidate list. Every ``legal_moves`` argument
+    ``select_thief_action`` receives, across 2k random reachable states, must
+    equal exactly what ``GameEngine.legal_moves()`` (which delegates to
+    ``Board.legal_moves``, the real legal-move API) returns for that state --
+    never a fixture that invents an impossible state, such as one where the
+    Thief's own origin is a barrier.
+    """
+    config = {"seed": 7, "world": {"map_area": "New York", "hint_max_words": 15}}
+    brain = resolve_brain(config, Role.THIEF)
+    rng = random.Random(11)
+    board = Board(size=7)
+
+    seen_calls = []
+    scored_states = 0
+
+    def spy(**kwargs):
+        seen_calls.append(kwargs["legal_moves"])
+        return select_thief_action(**kwargs)
+
+    with patch.object(thief_module, "select_thief_action", side_effect=spy):
+        for _i in range(2_000):
+            pos = (rng.randint(0, 6), rng.randint(0, 6))
+            barriers = []
+            for _ in range(rng.randint(0, 4)):
+                b = (rng.randint(0, 6), rng.randint(0, 6))
+                if b != pos:  # a barrier can never land on an occupied cell (rule 46)
+                    barriers.append(b)
+            barriers = list(dict.fromkeys(barriers))
+            assert pos not in barriers  # the origin is never a barrier (reachability invariant)
+
+            engine = GameEngine(board=board, role=Role.THIEF, position=pos, barriers=barriers)
+            legal = engine.legal_moves()
+            belief = _UniformBelief(board) if rng.random() < 0.5 else _PeakBelief(
+                board, (rng.randint(0, 6), rng.randint(0, 6))
+            )
+            brain.reset(pos)
+            brain.decide(engine, belief, "", "New York")
+
+            if legal != ["STAY"]:
+                # legal == ["STAY"] short-circuits before scoring (FR-T1); otherwise
+                # the exact list scoring saw must be the real legal-move API's output.
+                scored_states += 1
+                assert seen_calls[-1] == legal
+
+    assert len(seen_calls) == scored_states
+    assert scored_states > 0

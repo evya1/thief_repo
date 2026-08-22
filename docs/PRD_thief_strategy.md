@@ -119,10 +119,15 @@ lookahead, book §6.3.1's "your own heuristic algorithm" route):
 3. **Freshness** — prefer destinations never visited this sub-game (role-local `visited`
    set, FR-T8). Diverse movement keeps the Police's belief diffuse (a fleeing thief that
    loops in place is easy to pin down) and feeds the signed diversity reward.
-4. **Trap penalty** — a destination that would be `boxed_in` next turn (all four orthogonal
-   neighbours barriers/off-board) is a one-turn-early rule-47 capture; it is penalized hard
-   enough that no combination of the other terms can select it while a non-trap alternative
-   exists.
+4. **Trap-risk penalty** — a destination with at most one orthogonal exit (`trap_risk`,
+   `orthogonal_mobility(dest) <= 1`) is penalized hard enough that no combination of the
+   other terms can select it while a non-trap-risk alternative exists. This is a conservative
+   strategy-level policy heuristic, not the domain's rule-47 terminal predicate
+   (`Board.boxed_in`, all four neighbours blocked): after any legal move from a reachable
+   non-terminal state the vacated origin remains an unblocked neighbour, so `boxed_in` is
+   never true of a legal destination — it stays the domain's own capture check, unchanged.
+   `trap_risk` instead flags a destination one further barrier could seal, without claiming
+   the destination is itself a capture.
 
 The weighted sum with config-owned weights (PRD §9) is **derived design / project
 convention**, not an official requirement: M-04 marks the evasion priority ordering as
@@ -243,15 +248,19 @@ score = w_dist * manhattan(dest, threat) / board.size
 
 mobility(dest) = number of legal orthogonal moves from dest (len(legal_moves(dest)) - 1)
 fresh(dest)    = 1 iff the action is an orthogonal MOVE and dest not in visited
-trap(dest)     = 1 iff Board.boxed_in(dest, barriers)
+trap(dest)     = 1 iff trap_risk(dest) := orthogonal_mobility(dest, barriers) <= 1
 ```
+
+`trap_risk` is a strategy-level policy predicate, distinct from `Board.boxed_in` (the domain's
+rule-47 zero-exit terminal check, unchanged): it conservatively flags a reachable destination
+with at most one orthogonal exit, not a guaranteed capture.
 
 The winning action is the **first maximum** in CT-01 order (strict greater-than comparison
 while scanning) — deterministic tie-break, the reference's own convention (report §5.2).
-`w_trap` (default 5.0) dominates the maximum possible non-trap score (≤ 1.0 + 1.71·1.0 +
-0.25 + 0.15 < 3.2), so a trap destination is never selected while any non-trap alternative
-exists. The priorities and weights are the PLANQ-008 approval baseline (PRD §9), not an
-official requirement.
+`w_trap` (default 5.0) dominates the maximum possible non-trap-risk score (≤ 1.0 + 1.71·1.0 +
+0.25 + 0.15 < 3.2), so a trap-risk destination is never selected while any lower-risk
+alternative exists. The priorities and weights are the PLANQ-008 approval baseline (PRD §9),
+not an official requirement.
 
 ### FR-T4 — Role guard: the Thief never places a barrier (M-04 role-specific, GAME-012)
 
@@ -478,8 +487,10 @@ role brain).
   over the Police's next move; a one-move-ahead squeeze that does not box the destination in
   immediately can still land the Thief. Lookahead (minimax/expectimax over the opponent
   belief, book §6.3.1) is the P2 upgrade if self-play shows trap lag.
-- **The trap term is one turn deep** (`boxed_in` at the destination only). Two-turn traps
-  (the Police placing the sealing barrier next turn) are mitigated by mobility, not caught.
+- **The trap-risk term is one turn deep** (`trap_risk` — at most one orthogonal exit at the
+  destination only, a conservative policy heuristic, not the domain's rule-47 `boxed_in`
+  capture check). Two-turn traps (the Police placing the sealing barrier next turn) are
+  mitigated by mobility, not caught.
 - **The diffuse fallback can sit on a stale hotspot.** Under the default one-sided
   `trust_v1` likelihood (PRD-BELIEF-BOARD §6.2) an empty received field carries no negative
   evidence; `scent.hottest` inherits that staleness. The belief stage's `kernel_bayes_v1`
@@ -564,7 +575,7 @@ flowchart TD
 | TC-T03 | threat selection: (a) confident peak ⇒ action maximizes distance to `most_likely()`; (b) peak below `min_confidence` + non-empty field ⇒ distance to `hottest()`; (c) below + empty ⇒ distance to board centre | FR-T2, MS-3 |
 | TC-T04 | mobility term: two equidistant destinations ⇒ the one with more legal orthogonal options is selected | FR-T3 |
 | TC-T05 | freshness term: equidistant + equal mobility ⇒ the unvisited destination is selected over the visited one | FR-T3, FR-T8 |
-| TC-T06 | trap term: a destination that would be `boxed_in` next turn is avoided whenever a non-trap alternative exists (`w_trap` dominance) | FR-T3 |
+| TC-T06 | trap-risk term: a reachable destination with at most one orthogonal exit (`trap_risk`) is avoided whenever a lower-risk alternative exists (`w_trap` dominance) | FR-T3 |
 | TC-T07 | forced STAY: all orthogonal moves blocked ⇒ `("STAY", None)`, `fallback=True`; `self_captured()` remains domain-decided (no policy override) | FR-T1 |
 | TC-T08 | tie-break: two equally-scored actions ⇒ the earlier in CT-01 order (N, S, W, E, STAY) wins | FR-T3, NFR-2 |
 | TC-T09 | template hint: output ≤ 15 words; names a landmark from the arena table (or the generic non-landmark line); `verdict` ∈ {truth, lie}; seeded lie fraction within 0.30–0.50 over 1000 generated hints (deterministic per seed) | FR-T6 |

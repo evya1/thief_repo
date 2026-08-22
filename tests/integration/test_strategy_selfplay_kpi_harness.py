@@ -5,10 +5,15 @@ never placed a barrier and never issued a capture claim, so any policy --
 including always-STAY -- passed the old 60%/30% gates). Every required THIEF
 sub-game across the series is evaluated (never ``any()``), the thief under
 test runs the real coordinator+brain (``BrainDrivenEngine`` running the
-actual ``ThiefBrain``, the same composition ``create_peer`` wires in
-production), and a mandatory negative control (an always-STAY thief) must
-FAIL against the same opponent, with the failure coming from an actual
-recorded CAPTURE outcome.
+actual ``ThiefBrain``), and a mandatory negative control (an always-STAY
+thief) must FAIL against the same opponent, with the failure coming from an
+actual recorded CAPTURE outcome.
+
+The strategy configuration is no longer hand-written here (LOW-11): it is
+``production_strategy_config()``, obtained by asking ``create_peer`` for a
+peer and reading the mapping that factory hands its engine, so this KPI
+measures the configuration this repository actually ships.
+``test_kpi_thief_config_is_the_production_composition`` pins that provenance.
 """
 
 from __future__ import annotations
@@ -21,10 +26,33 @@ from tests.integration.test_strategy_selfplay_kpi import (
     DummyBudgets,
     GreedyCapturingPolice,
     KPIResult,
-    _strategy_config,
     _terms,
 )
+from thief_peer.sdk import create_peer
 from thief_peer.wire.brain import BrainDrivenEngine
+
+#: The configuration this repository actually ships with.
+_SHARED_CONFIG_PATH = "config/game.json"
+_PRIVATE_CONFIG_PATH = "config/game.toml.example"
+
+
+def production_strategy_config() -> dict:
+    """The Thief strategy config assembled by the PRODUCTION composition root.
+
+    LOW-11: this used to be a hand-written two-key dict, so the KPI could keep
+    reporting a healthy number while the shipped configuration drifted away
+    from it -- different weights, a brain override, another scent model -- with
+    nothing failing. It is obtained through ``create_peer`` instead: the same
+    shared-JSON + private-TOML -> ``assemble_strategy_config`` path production
+    uses, read off the engine that factory wires.
+    """
+    peer = create_peer(
+        _SHARED_CONFIG_PATH, private_config_path=_PRIVATE_CONFIG_PATH, role=Role.THIEF,
+    )
+    return dict(peer.engine.config)
+
+
+_strategy_config = production_strategy_config()
 
 
 def _run_against_capturing_police(thief_engine_factory, n_games: int, seed: int) -> KPIResult:
@@ -96,3 +124,23 @@ def test_kpi_negative_control_always_stay_fails() -> None:
     print(f"\nalways-STAY vs capturing police: {result.survived}/{result.total_thief_subgames} = {rate:.1%}")
     assert result.captured > 0, "the negative control must actually be captured, not merely score low"
     assert rate < 0.60, f"always-STAY unexpectedly passed the KPI at {rate:.1%}"
+
+
+def test_kpi_thief_config_is_the_production_composition() -> None:
+    """LOW-11: the KPI's thief config is the SHIPPED one, not a hand-written stub.
+
+    Pins the production composition path end-to-end: ``create_peer`` with no
+    explicit ``strategy=`` wires a ``BrainDrivenEngine``, and the exact mapping
+    it hands that engine is the mapping every KPI run above uses.
+    """
+    peer = create_peer(
+        _SHARED_CONFIG_PATH, private_config_path=_PRIVATE_CONFIG_PATH, role=Role.THIEF,
+    )
+    assert type(peer.engine).__name__ == "BrainDrivenEngine"
+    assert peer.engine.config == _strategy_config
+
+    # Not a stub: it carries the assembled strategy weights and the pinned scent
+    # model, both of which the previous two-key hand-written dict omitted.
+    assert _strategy_config["strategy"]["thief"]["w_trap"] == 5.0
+    assert _strategy_config["scent_model"]
+    assert _strategy_config["world"]["map_area"]

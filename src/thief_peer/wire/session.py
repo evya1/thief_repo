@@ -15,6 +15,12 @@ from common.domain.board import Board, Cell
 from common.domain.rules import GameEngine
 from common.domain.scoring import Outcome, Role
 from thief_peer.scent.model import Trail, make_trail
+from thief_peer.wire.capture_exchange import (
+    absorb_declarations,
+    claim_hits_own_cell,
+    declare_own_action,
+    resolve_claims,
+)
 
 
 @dataclass
@@ -85,38 +91,21 @@ class SubgameSession:
     def observe_barrier_and_claims(self, message: dict) -> None:
         """Absorb an opponent's declared barrier + capture-claim bookkeeping.
 
-        A capture claim is judged against the position that exists RIGHT NOW, at the
-        moment it arrives — before this peer's own next move can change it (GAME-009 /
-        SEC-007: "move away, then deny" must not be possible). That snapshot rides with
-        the claim until it is answered in ``build_result``.
+        Delegates to ``capture_exchange.absorb_declarations``, which owns the
+        pre-move snapshot rule (GAME-009 / SEC-007) and raises before mutating.
         """
         assert self.engine is not None
-        if "barrier_placed" in message:
-            self.engine.observe_barrier(message["barrier_placed"])
-        if self.engine.role is Role.THIEF and "capture_claim" in message:
-            cc = message["capture_claim"]
-            self.pending_claim = tuple(cc) if isinstance(cc, list) else cc
-            self.pending_claim_position = self.engine.position
-        if self.engine.role is Role.POLICE:
-            claim_response = message.get("claim_response")
-            if claim_response and claim_response.get("caught") is True:
-                self.opponent_terminal = Outcome.CAPTURE
-            win_claim = message.get("win_claim")
-            if win_claim:
-                wtype = win_claim.get("type")
-                if wtype == "survival":
-                    self.opponent_terminal = Outcome.SURVIVAL
-                elif wtype == "capture":
-                    self.opponent_terminal = Outcome.CAPTURE
+        claim, judged_at, terminal = absorb_declarations(self.engine, message)
+        if claim is not None:
+            self.pending_claim = claim
+            self.pending_claim_position = judged_at
+        if terminal is not None:
+            self.opponent_terminal = terminal
 
     def capture_landed_on_own_cell(self, message: dict) -> bool:
         """True iff this half-turn's incoming capture_claim names our own current cell."""
         assert self.engine is not None
-        claim = message.get("capture_claim")
-        if claim is None:
-            return False
-        cell: Any = tuple(claim) if isinstance(claim, list) else claim
-        return tuple(cell) == self.engine.position
+        return claim_hits_own_cell(self.engine, message)
 
     def build_result(
         self,
@@ -131,8 +120,13 @@ class SubgameSession:
         barrier_cell: Cell | None = None,
     ) -> dict[str, Any]:
         """Build the ONE sealed result for this turn (Decision metadata + own
-        smell_grid + claim handling); ``subgame.py`` derives the public
-        projection from it -- never build a second outgoing dict."""
+        smell_grid + declarations + claim handling); ``subgame.py`` derives the
+        public projection from it -- never build a second outgoing dict.
+
+        The truthful capture exchange (GAME-006/009/012) is runtime-owned
+        protocol, not a strategy concern, so ``declare_own_action`` attaches this
+        peer's own declarations for whichever role it holds this sub-game.
+        """
         assert self.engine is not None and self.trail is not None
         smell_grid = self.trail.full_turn(self.engine.position)
         res: dict[str, Any] = {
@@ -147,20 +141,11 @@ class SubgameSession:
             "state": self.engine.state_string(),
             "smell_grid": smell_grid,
         }
-        if self.pending_claim is not None:
-            ans = self.engine.answer_capture_claim(self.pending_claim, at=self.pending_claim_position)
-            res["claim_response"] = ans
-            self.pending_claim = None
-            self.pending_claim_position = None
-            if ans and ans.get("caught") is True:
-                self.thief_caught = True
-                res["win_claim"] = {"type": "capture"}
-                return res
-        if self.engine.role is Role.THIEF:
-            if self.engine.self_captured():
-                res["win_claim"] = {"type": "capture"}
-            elif self.engine.survived():
-                res["win_claim"] = {"type": "survival"}
+        declare_own_action(self.engine, res, barrier_cell)
+        caught = resolve_claims(self.engine, res, self.pending_claim, self.pending_claim_position)
+        self.pending_claim = None
+        self.pending_claim_position = None
+        self.thief_caught = self.thief_caught or caught
         return res
 
     def terminal(self) -> Outcome | None:

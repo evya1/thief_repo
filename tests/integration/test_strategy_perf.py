@@ -10,7 +10,7 @@ import time
 from common.domain.board import Board
 from common.domain.rules import GameEngine
 from common.domain.scoring import Role
-from src.thief_peer.strategy import resolve_brain
+from thief_peer.strategy import resolve_brain
 
 
 class _UniformBelief:

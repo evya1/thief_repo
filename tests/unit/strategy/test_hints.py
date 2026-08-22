@@ -10,8 +10,8 @@ from __future__ import annotations
 import random
 
 from common.domain.board import Cell, chebyshev
-from src.thief_peer.belief.hints import parse_landmarks
-from src.thief_peer.strategy.hints import HintWriter
+from thief_peer.belief.hints import parse_landmarks
+from thief_peer.strategy.hints import HintWriter
 
 
 class TestTemplateHint:

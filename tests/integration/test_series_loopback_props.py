@@ -55,7 +55,7 @@ def test_brain_driven_spine() -> None:
     S3a/S3b/S3c wired: BrainDrivenEngine replaces stand-in on THIEF path.
     POLICE sub-games keep stand-in (SD-T7). Full six-sub-game series settles.
     """
-    from src.thief_peer.wire import BrainDrivenEngine
+    from thief_peer.wire import BrainDrivenEngine
 
     a, b = pair("Police", "Thief")
 

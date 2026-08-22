@@ -27,7 +27,7 @@ def run_kpi_series(n_games: int = 20, seed: int = 42) -> KPIResult:
     in either case, well above the 60%/30% thresholds, so a smaller N keeps
     the assertion meaningful without stalling the suite.
     """
-    from src.thief_peer.wire import BrainDrivenEngine
+    from thief_peer.wire import BrainDrivenEngine
 
     total_survived = 0
     total_captured = 0
@@ -92,7 +92,7 @@ def test_kpi_vs_reference_police() -> None:
 
 def test_kpi_vs_standin() -> None:
     """TC-T17: survival vs stand-in >= 30% (labeled baseline)."""
-    from src.thief_peer.wire import BrainDrivenEngine
+    from thief_peer.wire import BrainDrivenEngine
 
     total_survived = 0
     n_games = 20

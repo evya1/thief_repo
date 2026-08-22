@@ -10,8 +10,8 @@ import random
 from common.domain.board import Board
 from common.domain.rules import GameEngine
 from common.domain.scoring import Role
-from src.thief_peer.strategy.base import BrainBase
-from src.thief_peer.strategy.hints import HintWriter
+from thief_peer.strategy.base import BrainBase
+from thief_peer.strategy.hints import HintWriter
 
 
 class _TestBrain(BrainBase):

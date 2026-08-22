@@ -33,6 +33,23 @@ def orthogonal_mobility(board: Board, cell: Cell, barriers: list[Cell]) -> int:
     )
 
 
+def trap_risk(mobility: int) -> bool:
+    """Conservative strategy risk predicate: at most one orthogonal exit remains.
+
+    This is a policy heuristic, not the rule-47 terminal predicate
+    (``Board.boxed_in``, zero exits). After any legal move from a reachable
+    non-terminal state, the vacated origin is always an unblocked neighbour
+    of the destination, so ``boxed_in(dest, ...)`` can never be true there —
+    ``boxed_in`` stays the domain's own capture check, unchanged. This
+    predicate instead flags a destination that a single further barrier
+    could seal (one exit left, which may be the way back), so ``w_trap``
+    can steer the Thief away from it while a safer alternative exists. It
+    is a conservative signal, not a guarantee the destination leads to
+    capture.
+    """
+    return mobility <= 1
+
+
 def destination(board: Board, position: Cell, action: str) -> Cell:
     """The cell an action lands on; ``STAY`` never moves."""
     return position if action == "STAY" else board.step(position, action)
@@ -78,7 +95,7 @@ def select_thief_action(
         d = manhattan(dest, threat)
         mobility = orthogonal_mobility(board, dest, barriers)
         fresh = 1 if (action != "STAY" and dest not in visited) else 0
-        trap = 1 if board.boxed_in(dest, barriers) else 0
+        trap = 1 if trap_risk(mobility) else 0
         score = (
             weights.w_dist * d / size
             + weights.w_mob * mobility / 4

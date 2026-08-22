@@ -25,7 +25,9 @@ Use an ADR only for a sufficiently important and durable technical design decisi
 1. Legal action only.
 2. Never place a barrier (Thief has no barrier action).
 3. Avoid a confidently-believed Police cell when another legal cell exists.
-4. Avoid trapped/boxed states (no legal move next turn).
+4. Avoid trap-risk destinations (`trap_risk`: at most one orthogonal exit) — a conservative
+   strategy-level policy heuristic, distinct from the domain's rule-47 `Board.boxed_in`
+   terminal predicate (no legal move at all), which the Thief strategy does not call.
 5. Then maximize: distance from believed Police position, future mobility, unvisited-cell preference (in that tie-break order).
 
 **Police hard constraints, in order:**
@@ -47,6 +49,10 @@ Use an ADR only for a sufficiently important and durable technical design decisi
 - T007's `heuristics`-scoped acceptance criterion (`{#heuristics}`) in both repositories may now be closed once the seeded scenarios above are demonstrated.
 - W3 (thief_repo) and W4 (police_repo) task scope is bounded to: (a) auditing existing strategy code against this ordering, (b) adding the two required negative-control scenarios, (c) documenting any deviation as a finding, not silently reordering weights.
 - Does not change `OPEN-011`, `OPEN-004`, or any other OPEN item's official status.
+- Priority 4's "trap-risk" is a derived strategy-level policy signal only: it never claims a
+  rule-47 capture, never changes `Board.boxed_in` (the domain's own terminal predicate stays
+  unmodified), and does not reinterpret rule 47 itself — only the Thief's move-ranking
+  heuristic changes.
 
 ## Validation
 

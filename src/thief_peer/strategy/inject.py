@@ -12,6 +12,7 @@ from importlib import import_module
 from common.domain.scoring import Role
 
 from .base import BrainBase
+from .thief import ThiefBrain
 
 _SELECTORS: dict[Role, str] = {
     Role.THIEF: "thief_class",
@@ -59,10 +60,18 @@ def resolve_brain(
     llm: object | None = None,
     rng: random.Random | None = None,
 ) -> BrainBase:
-    """Instantiate the resolved class with: rng (default: seeded from the
-    resolved config's seed), arena + hint_max_words from the resolved config,
-    and the template HintWriter (provider only via T027). The C04 runtime never
-    hard-codes a brain (book section 6.2, reference runtime.py L73 pattern).
+    """Instantiate the resolved class with the DOCUMENTED common dependencies only.
+
+    Every brain — built-in or custom — receives exactly the constructor
+    dependencies the shared core documents: ``rng`` (default: seeded from the
+    resolved config's seed), ``arena`` + ``max_words`` from the resolved
+    config, and the template ``HintWriter``. ThiefBrain's private weight
+    vector (``w_dist``/``w_mob``/``w_fresh``/``w_trap``/``min_confidence``) is
+    an explicit *additional* branch that fires ONLY when the resolved class
+    is the built-in ``ThiefBrain`` (or a subclass of it) — it is never
+    force-fed to an arbitrary injected class (H4). There is no
+    ``inspect.signature`` probing and no catch-`TypeError`-and-retry: the
+    two construction paths are explicit, not guessed.
     """
     cls = resolve_brain_cls(config, role)
     if rng is None:
@@ -82,26 +91,45 @@ def resolve_brain(
     from .hints import HintWriter
 
     hint_writer = HintWriter(role, rng, arena, max_words)
-    kwargs: dict[str, object] = {"rng": rng, "arena": arena, "max_words": max_words,
-                                  "hint_writer": hint_writer}
-    # Apply role-specific config weights (PRD §9).
+    common_kwargs: dict[str, object] = {
+        "rng": rng,
+        "arena": arena,
+        "max_words": max_words,
+        "hint_writer": hint_writer,
+    }
+
+    if isinstance(cls, type) and issubclass(cls, ThiefBrain):
+        return cls(**common_kwargs, **_thief_weights(config, role))
+    return cls(**common_kwargs)
+
+
+def _thief_weights(config: Mapping[str, object] | None, role: Role) -> dict[str, float]:
+    """The built-in ThiefBrain's private weight vector (PRD §9) ONLY.
+
+    Read from the resolved ``[strategy.<role>]`` config mapping; defaults are
+    the PLANQ-008 approval baseline. This is never applied to a non-ThiefBrain
+    class (H4) -- see ``resolve_brain``.
+    """
+    role_key = role.value if isinstance(role, Role) else str(role)
+    role_cfg: object = {}
     if config is not None:
-        role_cfg = config.get("strategy", {}).get(role.value if isinstance(role, Role) else str(role), {})
-        if isinstance(role_cfg, Mapping):
-            kwargs.update({
-                "w_dist": float(role_cfg.get("w_dist", 1.0)),
-                "w_mob": float(role_cfg.get("w_mob", 0.25)),
-                "w_fresh": float(role_cfg.get("w_fresh", 0.15)),
-                "w_trap": float(role_cfg.get("w_trap", 5.0)),
-                "min_confidence": float(role_cfg.get("min_confidence", 0.15)),
-            })
-    return cls(**kwargs)
+        strategy = config.get("strategy", {})
+        if isinstance(strategy, Mapping):
+            role_cfg = strategy.get(role_key, {})
+    if not isinstance(role_cfg, Mapping):
+        role_cfg = {}
+    return {
+        "w_dist": float(role_cfg.get("w_dist", 1.0)),
+        "w_mob": float(role_cfg.get("w_mob", 0.25)),
+        "w_fresh": float(role_cfg.get("w_fresh", 0.15)),
+        "w_trap": float(role_cfg.get("w_trap", 5.0)),
+        "min_confidence": float(role_cfg.get("min_confidence", 0.15)),
+    }
 
 
 def _default_cls(role: Role) -> type[BrainBase]:
     """Return the shipped default brain class for the role."""
     if role is Role.THIEF:
-        from .thief import ThiefBrain
         return ThiefBrain
     # POLICE default: stand-in kept on this repo (SD-T7).
     raise ValueError(f"no default brain class for {role} in thief_repo")

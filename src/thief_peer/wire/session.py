@@ -30,6 +30,7 @@ class SubgameSession:
     trail: Trail | None = None
     opponent_terminal: Outcome | None = None
     pending_claim: tuple | None = None
+    pending_claim_position: Cell | None = None
     thief_caught: bool = False
 
     def start(self, sub_game: int, role: Role, terms: dict | None = None) -> GameEngine:
@@ -73,6 +74,7 @@ class SubgameSession:
         )
         self.opponent_terminal = None
         self.pending_claim = None
+        self.pending_claim_position = None
         self.thief_caught = False
         return self.engine
 
@@ -81,13 +83,20 @@ class SubgameSession:
         self.engine.apply_own_move(move)
 
     def observe_barrier_and_claims(self, message: dict) -> None:
-        """Absorb an opponent's declared barrier + capture-claim bookkeeping."""
+        """Absorb an opponent's declared barrier + capture-claim bookkeeping.
+
+        A capture claim is judged against the position that exists RIGHT NOW, at the
+        moment it arrives — before this peer's own next move can change it (GAME-009 /
+        SEC-007: "move away, then deny" must not be possible). That snapshot rides with
+        the claim until it is answered in ``build_result``.
+        """
         assert self.engine is not None
         if "barrier_placed" in message:
             self.engine.observe_barrier(message["barrier_placed"])
         if self.engine.role is Role.THIEF and "capture_claim" in message:
             cc = message["capture_claim"]
             self.pending_claim = tuple(cc) if isinstance(cc, list) else cc
+            self.pending_claim_position = self.engine.position
         if self.engine.role is Role.POLICE:
             claim_response = message.get("claim_response")
             if claim_response and claim_response.get("caught") is True:
@@ -139,9 +148,10 @@ class SubgameSession:
             "smell_grid": smell_grid,
         }
         if self.pending_claim is not None:
-            ans = self.engine.answer_capture_claim(self.pending_claim)
+            ans = self.engine.answer_capture_claim(self.pending_claim, at=self.pending_claim_position)
             res["claim_response"] = ans
             self.pending_claim = None
+            self.pending_claim_position = None
             if ans and ans.get("caught") is True:
                 self.thief_caught = True
                 res["win_claim"] = {"type": "capture"}

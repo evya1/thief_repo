@@ -77,6 +77,8 @@ class StandInEngine:
         if self._session is None or self._session.engine is None:
             return None
         eng = self._session.engine
+        trail = self._session.trail
+        smell_grid = trail.full_turn(eng.position) if trail is not None else {}
         if eng.role is Role.THIEF:
             if eng.self_captured() is None:
                 return None
@@ -85,10 +87,11 @@ class StandInEngine:
                 "move": "STAY",
                 "hint": "",
                 "state": eng.state_string(),
+                "smell_grid": smell_grid,
                 "claim_response": {"claim": [int(eng.position[0]), int(eng.position[1])],
                                    "caught": True},
             }
         if self.terminal() is None:
             return None
         self._session.apply_move("STAY")
-        return {"move": "STAY", "hint": "", "state": eng.state_string()}
+        return {"move": "STAY", "hint": "", "state": eng.state_string(), "smell_grid": smell_grid}

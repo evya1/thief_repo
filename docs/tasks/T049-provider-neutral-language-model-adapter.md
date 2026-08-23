@@ -1,6 +1,6 @@
 ---
 id: T049
-status: not_started
+status: done
 priority: P2
 task_type: component
 component: C06
@@ -61,16 +61,16 @@ The selected vendor's transport is T050 and is separately gated by `PLANQ-003`.
 
 ## Acceptance criteria
 
-- [ ] The prompt is versioned and deterministic, built only from allowlisted `HintRenderRequest`
+- [x] The prompt is versioned and deterministic, built only from allowlisted `HintRenderRequest`
       fields, and requests plain text rather than model-owned JSON semantics.
-- [ ] The injected client is called only via `ExternalApiGatekeeper.execute(lane="llm", ...)` with the
+- [x] The injected client is called only via `ExternalApiGatekeeper.execute(lane="llm", ...)` with the
       passed deadline.
-- [ ] One client response normalizes into `ProviderReply` with provider and model identifiers and
+- [x] One client response normalizes into `ProviderReply` with provider and model identifiers and
       optional nonnegative token counts.
-- [ ] Booleans and negative usage values, and oversized or empty raw text, are rejected with typed
+- [x] Booleans and negative usage values, and oversized or empty raw text, are rejected with typed
       adapter errors that `HintWriter` maps to a deterministic fallback.
-- [ ] Unknown usage stays `None`; token counts are never inferred from the text.
-- [ ] Contract tests run fake clients for success, timeout, 429 retry, missing usage, malformed types,
+- [x] Unknown usage stays `None`; token counts are never inferred from the text.
+- [x] Contract tests run fake clients for success, timeout, 429 retry, missing usage, malformed types,
       and the privacy allowlist, and assert zero live network access.
 
 ## Verification
@@ -81,4 +81,66 @@ The selected vendor's transport is T050 and is separately gated by `PLANQ-003`.
 
 ## Result and evidence
 
-(to be filled)
+Ported semantically from `police_repo` commit `887b476`
+(`src/police_peer/infra/llm_client.py`, `src/police_peer/infra/llm_provider.py`, and their
+unit/contract test files), renaming `police_peer` -> `thief_peer` and `Role.POLICE` ->
+`Role.THIEF` only; no other logic changed. Reuses T027's `HintRenderRequest`/`TokenUsage`/
+`ProviderReply`/`TextProvider` from `thief_peer/strategy/hint_types.py` unchanged, and T048's
+`ExternalApiGatekeeper.execute(lane="llm", deadline=...)` unchanged.
+
+**Files added:**
+- `src/thief_peer/infra/llm_client.py` (41 lines) -- `CompletionClient` Protocol, `RawCompletion`.
+- `src/thief_peer/infra/llm_provider.py` (137 lines) -- `build_prompt`, `LanguageModelAdapter`,
+  `LlmAdapterError` and its `MalformedResponseError`/`MalformedUsageError`/`InvalidOutputTextError`
+  subclasses.
+- `tests/unit/infra/test_llm_provider.py` (116 lines) -- 14 tests: prompt versioning/determinism/
+  allowlist/plain-text, usage normalization, text normalization.
+- `tests/contract/test_llm_provider_contract.py` (172 lines) -- 12 tests: Gatekeeper `llm`-lane
+  wiring, deadline preservation, retry/timeout, usage/text rejection, privacy allowlist, zero-network.
+
+**Tests run:**
+```
+uv run pytest tests/unit/infra/test_llm_provider.py tests/contract/test_llm_provider_contract.py -v --no-cov
+uv run pytest --no-cov
+uv run ruff check src/thief_peer/infra tests
+uv run python scripts/check_line_cap.py
+```
+
+**Results:**
+- Targeted suite: 26 passed (14 unit + 12 contract).
+- Full suite: 1211 passed.
+- Ruff (`src/thief_peer/infra tests`): all checks passed.
+- Line cap: all four new files are within the 150-logical-line cap (41/137/116/172 raw lines,
+  well under cap after excluding blank/comment lines). The one `check_line_cap.py` FAIL reported
+  (`tests/unit/wire/test_negotiate_per_subgame.py`, 178 lines) is a pre-existing file outside this
+  task's write set, produced by the concurrent T052 sibling worker; not touched or introduced by
+  this task.
+
+**Acceptance-criteria evidence:**
+1. Versioned/deterministic/allowlist/plain-text prompt: `test_prompt_is_versioned`,
+   `test_prompt_is_deterministic_for_identical_request`, `test_prompt_changes_with_claim`,
+   `test_prompt_requests_plain_text_not_json`, `test_prompt_contains_only_allowlisted_fields`.
+2. Client reached only via `Gatekeeper.execute(lane="llm", ...)` with passed deadline:
+   `test_client_reached_only_through_llm_lane_execute`, `test_deadline_is_preserved_not_reset`.
+3. Response normalizes into `ProviderReply`: `test_success_normalizes_to_provider_reply`,
+   `test_normalize_usage_known_counts`.
+4. Typed rejection of bool/negative usage and oversized/empty text:
+   `test_normalize_usage_rejects_bool`, `test_normalize_usage_rejects_negative`,
+   `test_malformed_usage_bool_is_rejected`, `test_malformed_usage_negative_is_rejected`,
+   `test_empty_output_text_is_rejected`, `test_oversized_output_text_is_rejected`,
+   `test_normalize_text_rejects_empty`, `test_normalize_text_rejects_oversized`.
+5. Unknown usage stays `None`: `test_normalize_usage_none_stays_none`,
+   `test_missing_usage_stays_none_not_inferred`.
+6. Contract fakes cover success/timeout/429-retry/missing-usage/malformed/privacy/zero-network:
+   `test_success_normalizes_to_provider_reply`, `test_timeout_raises_and_never_returns_a_reply`,
+   `test_retryable_429_then_success`, `test_missing_usage_stays_none_not_inferred`,
+   `test_malformed_usage_bool_is_rejected`, `test_privacy_allowlist_disallowed_field_never_reaches_prompt`,
+   `test_zero_live_network_uses_fakes_only`.
+
+**Privacy allowlist proof:** `test_privacy_allowlist_disallowed_field_never_reaches_prompt`.
+
+**Gatekeeper lane proof:** `test_client_reached_only_through_llm_lane_execute`.
+
+**Deviations:** none -- semantic port only (module path and `Role` member renamed to Thief's own).
+
+**Blockers:** none.

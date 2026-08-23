@@ -12,6 +12,7 @@ from importlib import import_module
 from common.domain.scoring import Role
 
 from .base import BrainBase
+from .hint_types import TextProvider
 from .thief import ThiefBrain
 
 _SELECTORS: dict[Role, str] = {
@@ -57,7 +58,7 @@ def resolve_brain_cls(
 def resolve_brain(
     config: Mapping[str, object] | None,
     role: Role,
-    llm: object | None = None,
+    llm: TextProvider | None = None,
     rng: random.Random | None = None,
 ) -> BrainBase:
     """Instantiate the resolved class with the DOCUMENTED common dependencies only.
@@ -65,7 +66,9 @@ def resolve_brain(
     Every brain — built-in or custom — receives exactly the constructor
     dependencies the shared core documents: ``rng`` (default: seeded from the
     resolved config's seed), ``arena`` + ``max_words`` from the resolved
-    config, and the template ``HintWriter``. ThiefBrain's private weight
+    config, and a ``HintWriter`` carrying ``llm`` as its optional TextProvider
+    (T027; closes F-14 -- ``llm`` is used, or rejected fail-fast, never
+    silently ignored). ThiefBrain's private weight
     vector (``w_dist``/``w_mob``/``w_fresh``/``w_trap``/``min_confidence``) is
     an explicit *additional* branch that fires ONLY when the resolved class
     is the built-in ``ThiefBrain`` (or a subclass of it) — it is never
@@ -90,7 +93,9 @@ def resolve_brain(
 
     from .hints import HintWriter
 
-    hint_writer = HintWriter(role, rng, arena, max_words)
+    if llm is not None and not isinstance(llm, TextProvider):
+        raise TypeError(f"llm={llm!r} does not implement TextProvider.render")
+    hint_writer = HintWriter(role, rng, arena, max_words, provider=llm)
     common_kwargs: dict[str, object] = {
         "rng": rng,
         "arena": arena,

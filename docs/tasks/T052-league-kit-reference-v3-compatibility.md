@@ -1,6 +1,6 @@
 ---
 id: T052
-status: in_review
+status: done
 priority: P2
 task_type: component
 component: C04
@@ -45,9 +45,9 @@ risk: high
 
 # T052 — `reference-v3` protocol and lifecycle compatibility (anti-corruption adapter)
 
-> **Status correction (2026-08-23): `implementation_present` / `in_review`, not `done`.**
+> **Status history (2026-08-23): temporarily returned to `in_review`, now `done`.**
 >
-> This task was marked `done` while its conversions had **no production caller**. The
+> This task was first marked `done` while its conversions had **no production caller**. The
 > helpers in `common/transport/league_kit_envelope.py` passed their unit tests, but the
 > runtime never invoked them: `common/transport/subgame.py` sent the internal audit
 > directly (`channel.send_audit(audit)`), inbound kit records reached the verifier
@@ -57,12 +57,16 @@ risk: high
 > instead of sharing the one `PeerFacade._exchange_greeting()` establishes, so a *different*
 > opponent group at sub-game 2 was silently adopted rather than refused.
 >
-> Passing unit helpers are necessary and not sufficient; production wiring is the
-> acceptance. **T054** owns that closure and carries the failing-before/passing-after
-> production-path evidence. This task's history is not rewritten — it stays in review until
-> T054 lands and the K0-K4 gates in T022 pass.
+> Passing unit helpers were necessary and not sufficient; production wiring was the missing
+> acceptance criterion, so this task was reclassified `in_review` until that wiring existed.
+> **T054** then supplied and independently validated the production closure (wiring the kit
+> envelope conversions into `subgame.py`, normalizing inbound records, adding the kit's
+> required top-level `sender`, and sealing the post-move `position`), with
+> failing-before/passing-after production-path evidence recorded in T054's own result
+> section. With that closure landed and validated, both T052 and T054 are `done`.
 >
-> Project status remains below `kit_interop` until T053 and T022 K0-K4 pass.
+> Project status remains below `kit_interop` until T053 (kit artifact projection) and T022
+> (K0-K4 live/contract gates) also pass.
 
 ## Expected outcome
 

@@ -7,7 +7,9 @@ from typing import Any
 
 from common.config import ConfigError, load_config, validate_config
 from common.domain.scoring import Role
+from common.transport.audit_wire import resolve_audit_wire
 from common.transport.loopback import pair
+from common.transport.opponent_pin import OpponentPin
 from common.transport.series import PeerConfig, PeerFacade, SeriesResult
 from thief_peer.replay_service import BundleReplayReport
 from thief_peer.replay_service import verify_bundle as _verify_replay_bundle
@@ -69,6 +71,7 @@ def create_peer(
     group_id: str = "thief-local",
     budgets: Budgets | None = None,
     mode: str = "warmup",
+    wire_profile: str | None = None,
 ) -> PeerFacade:
     """Public factory creating a validated PeerFacade.
 
@@ -149,11 +152,19 @@ def create_peer(
         ch_local, _ = pair(group_id, "loopback-peer")
         channel = ch_local
 
+    # ONE pin and ONE audit wire per series, resolved here and shared by both
+    # greeting paths -- never rebuilt inside the driver (T054).
+    audit_wire = resolve_audit_wire(wire_profile)
+    opponent_pin = OpponentPin()
+
     return PeerFacade(
         channel=channel,
         engine=engine,
         config=peer_cfg,
         name=group_id,
         mode=mode,
-        subgame_driver=negotiated_subgame_driver(group_id),
+        opponent_pin=opponent_pin,
+        subgame_driver=negotiated_subgame_driver(
+            group_id, opponent_pin=opponent_pin, audit_wire=audit_wire,
+        ),
     )

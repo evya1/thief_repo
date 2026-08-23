@@ -1,6 +1,6 @@
 ---
 id: T013
-status: blocked
+status: in_review
 priority: P0
 task_type: component
 component: C03
@@ -105,3 +105,29 @@ To be completed immediately before execution.
 Report files changed, tests executed, exact test results, decisions made, deviations, blockers, and newly discovered work. Include command output or artifact paths sufficient for the orchestrator to validate every acceptance criterion.
 
 ## Result and evidence
+
+**Status: `implementation_present` / `in_review`, not `done`.** Reviewed, tested mechanical port
+of the Police T013 implementation (byte-identical modulo `police_peer` -> `thief_peer` renames,
+verified by reverse-diff). Same remaining integration edge as Police: the signing seam
+(`build_signed_step_zero`) is implemented and fails closed, but no composition root yet supplies
+a real signer (T051's job, gated on **INPUT-003** -- no course-supplied signing credential
+observed), and the token ledger is not yet projected into `reporting/schemas.py`'s
+`SeriesResult` token fields (T051 per-turn recording + T055 artifact projection). The acceptance
+criterion "collected and signed before the first move ... once provisioned" stays open on the
+`step_zero_key` criterion gate.
+
+- Files: `src/thief_peer/evidence/{__init__,tokens,token_ledger,step_zero,runtime_summary}.py`,
+  `tests/unit/evidence/{test_tokens,test_token_ledger,test_step_zero,token_fixtures}.py`.
+- Port method: mechanical `sed s/police_peer/thief_peer/g` copy, orchestrator-reviewed
+  (round-trip reverse-diff against the Police source is byte-identical) -- no Haiku worker was
+  needed for a 9-file rename this size.
+- Tests: `uv run pytest tests/unit/evidence -q` -> 41 passed, 0 failed.
+- `uv run ruff check src/thief_peer/evidence tests/unit/evidence` -> clean (after
+  `--fix` for one import-ordering diff caused by `thief_peer` sorting differently than
+  `police_peer`).
+- `uv run python scripts/check_line_cap.py` -> 284 files within 150 logical lines, 5 baselined
+  (unchanged; no new baseline entries).
+- `git diff --check` -> clean.
+
+**Newly discovered work:** none. **Deviations:** none beyond the Police port's own
+module-split deviation. **Blockers:** INPUT-003, same as Police. (orchestrator, 2026-08-23)

@@ -84,7 +84,7 @@ require once `source_dirs` is corrected.
 
 ## Acceptance criteria
 
-- [ ] `config/repo_quality.toml` has `source_dirs = ["src", "common"]`.
+- [x] `config/repo_quality.toml` has `source_dirs = ["src", "common"]`.
 - [ ] `scripts/check_planning_graph.py` reports 0 issues.
 - [ ] The 6 over-limit files are each behavior-preservingly split under 150 logical lines (separate execution pass; list above is the authoritative starting inventory).
 - [ ] `scripts/check_planning_graph.py` runs as part of `scripts/run_quality_gates.py` or CI.
@@ -101,3 +101,118 @@ require once `source_dirs` is corrected.
 Report files changed, tests executed, exact results, decisions, deviations, blockers.
 
 ## Result and evidence
+
+**Status: PARTIAL completion (2026-08-23).** Only the `source_dirs`/line-cap-ratchet
+finding from this task's own packet is addressed in this pass, mirroring the sibling
+Police repository's `0550f4c` partial completion of the same finding. The remaining
+acceptance criteria below (`check_planning_graph.py` reconciliation, wiring it into
+`run_quality_gates.py`, splitting the 6 oversized files, README/TODO staleness) are
+**not** addressed by this pass and remain open for later execution/claims.
+
+### What was done
+
+`config/repo_quality.toml` had `source_dirs = []`, so `scripts/check_line_cap.py` never
+scanned `src/` or `common/` — a green line-cap gate proved nothing about production code.
+Running the checker directly against `src common` (independently, ignoring this task
+packet's own findings section, since Thief's history has diverged from Police's since the
+2026-08-22 governance pass that authored this file) found the following files over the
+150-logical-line limit at this commit's HEAD:
+
+```
+common/config/__init__.py                    278
+common/transport/negotiate.py                196
+common/transport/series.py                   183
+src/thief_peer/league/preflight.py            165
+common/transport/audit.py                     157
+src/thief_peer/reporting/schemas.py           448
+```
+
+This differs from the packet's own listed inventory for `common/transport/series.py`
+(176 vs. the 183 measured here) and `common/transport/audit.py` (154 vs. 157 measured
+here) — expected drift from the T046/T047/T048 commits landed on this branch since the
+packet was authored. The measured counts above (not the packet's) are what is pinned in
+the baseline.
+
+`source_dirs = ["src", "common"]` was set, and a pinned `[line_cap_baseline]` TOML table
+(6 entries, each independently measured as above) was added as the last section of
+`config/repo_quality.toml`, so the gate now scans production code honestly without
+silently sweeping the pre-existing oversized-file debt under the rug or compressing code
+to fit.
+
+Ratchet semantics (implemented in new `scripts/line_cap_ratchet.py`, split out of
+`scripts/check_line_cap.py` — which becomes a thin CLI — to keep both modules under the
+line cap themselves): an unlisted file over 150 logical lines fails ("new unlisted
+violation"); a baseline entry must match the file's current count exactly (drift up OR
+down fails as "baseline drift", forcing a genuine reduction to lower the baseline in the
+same commit); a file that drops to/below the cap must have its baseline entry removed
+("stale baseline entry"); a baseline entry naming a missing/wildcard/directory-wide path
+fails ("not in the scanned set"). `find_violations` is kept baseline-unaware for
+backward compatibility with the pre-existing test that calls it directly.
+
+10 new focused tests in `tests/test_line_cap_ratchet.py` (mirrored from Police's
+equivalent file, adjusted to nothing since Thief's `tests/helpers.py:captured_main`
+already returns the same 2-tuple `(code, output)`) prove every ratchet case. The one
+pre-existing assertion in `tests/test_line_docs_common.py` that checked for the substring
+`"exceed"` in FAIL output was updated to `"new unlisted violation"` since the message
+format legitimately changed with the ratchet.
+
+### Files changed
+
+- `config/repo_quality.toml` — `source_dirs = ["src", "common"]` + `[line_cap_baseline]`
+  table (6 entries), placed last in the file.
+- `scripts/check_line_cap.py` — reduced to a thin CLI (`collect_files` + `main`),
+  importing line-counting and ratchet logic from the new module.
+- `scripts/line_cap_ratchet.py` — new; pure logic (`raw_line_count`,
+  `logical_line_count`, `find_violations`, `load_baseline`, `ratchet_problems`).
+- `tests/test_line_cap_ratchet.py` — new; 10 focused tests.
+- `tests/test_line_docs_common.py` — one assertion updated (`"exceed"` ->
+  `"new unlisted violation"`) to match the new FAIL message format.
+- `docs/tasks/T040-w6-quality-gate-and-doc-reconciliation.md` — this section, and the
+  `source_dirs` acceptance criterion checked off.
+
+### Tests executed (exact commands and results)
+
+```
+uv run python scripts/check_line_cap.py
+  -> OK: 257 file(s) are within 150 logical lines (6 baselined)
+
+uv run pytest tests/test_line_cap_ratchet.py -v --no-cov
+  -> 10 passed in 0.06s
+
+uv run pytest --no-cov
+  -> 1185 passed in 86.35s
+
+uv run ruff check .
+  -> All checks passed!
+
+uv run python scripts/run_quality_gates.py
+  -> OK: all 7 generic repository gates passed (check_line_cap.py included)
+
+git diff --check
+  -> clean (no whitespace errors)
+```
+
+### Deviations from the task packet's own findings
+
+- The packet's "Findings from this session" section lists 6 files with slightly
+  different line counts for `common/transport/series.py` (176) and
+  `common/transport/audit.py` (154) than what this pass independently measured (183 and
+  157 respectively) at this commit's HEAD. Per this task's own instruction to measure
+  independently rather than copy stale numbers, the baseline pins the counts actually
+  measured now, not the packet's numbers.
+
+### Explicitly not done in this pass (left open)
+
+- `scripts/check_planning_graph.py` write-set-overlap reconciliation (`T009`/`T030`,
+  `T016`/`T032`) — untouched.
+- Wiring `scripts/check_planning_graph.py` into `scripts/run_quality_gates.py` or CI —
+  untouched.
+- Splitting the 6 pinned oversized files under 150 logical lines — untouched; they are
+  pinned in the baseline as a starting inventory for later behavior-preserving splits,
+  not split in this pass.
+- `docs/TODO.md` / `README.md` staleness (T007 status vs. `police-strategy`/
+  `thief-strategy` branches; PR #36 outcome) — untouched.
+
+### Blockers
+
+None for the scope addressed. The remaining criteria above need a separate claim/pass.

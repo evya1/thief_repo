@@ -1,0 +1,27 @@
+$ uv run python scripts/replay.py <tampered-bundle-dir>  (raw byte appended to a log; manifest digest left stale)
+bundle a1b2c3d4-e5f6-7890-abcd-ef1234567890 (A-vs-B): TAMPERED
+coverage: integrity=False, live_binding=False, physics=False, outcome=False, bundle_digests=False, external_authenticity=False
+NOTE: unanchored bundle — never reported as externally authentic.
+  ! digest mismatch: log_A-vs-B_g02.json
+exit code: 6
+
+$ uv run python scripts/replay.py <tampered-bundle-dir> --json
+{
+  "checked_records": 0,
+  "coverage": {
+    "bundle_digests": false,
+    "external_authenticity": false,
+    "integrity": false,
+    "live_binding": false,
+    "outcome": false,
+    "physics": false
+  },
+  "game_id": "A-vs-B",
+  "game_uid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "issues": [
+    "digest mismatch: log_A-vs-B_g02.json"
+  ],
+  "sub_games": [],
+  "verdict": "tampered"
+}
+exit code: 6

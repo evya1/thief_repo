@@ -7,8 +7,12 @@ from typing import Any
 
 from common.config import ConfigError, load_config, validate_config
 from common.domain.scoring import Role
+from common.transport.audit_wire import resolve_audit_wire
 from common.transport.loopback import pair
+from common.transport.opponent_pin import OpponentPin
 from common.transport.series import PeerConfig, PeerFacade, SeriesResult
+from thief_peer.replay_service import BundleReplayReport
+from thief_peer.replay_service import verify_bundle as _verify_replay_bundle
 from thief_peer.strategy import Strategy
 from thief_peer.wire import BrainDrivenEngine, StandInEngine
 from thief_peer.wire.config import (
@@ -19,6 +23,7 @@ from thief_peer.wire.config import (
     peer_locks,
     project_terms,
 )
+from thief_peer.wire.negotiate_per_subgame import negotiated_subgame_driver
 from thief_peer.wire.strategy_settings import assemble_strategy_config
 
 __version__ = "1.0.0"
@@ -26,12 +31,21 @@ SUPPORTED_SCHEMA_VERSIONS = frozenset({"1.0", "1.1", "1.2"})
 
 __all__ = [
     "Budgets",
+    "BundleReplayReport",
     "PeerFacade",
     "SeriesResult",
     "create_peer",
     "validate_startup_config",
+    "verify_replay_bundle",
     "__version__",
 ]
+
+
+def verify_replay_bundle(path: str | Path) -> BundleReplayReport:
+    """Load and verify one published replay bundle (T047). The sole application entrypoint
+    for replay verification — CLI/GUI adapters call only this, never the service module.
+    """
+    return _verify_replay_bundle(path)
 
 
 def validate_startup_config(raw_config: dict[str, Any]) -> None:
@@ -57,6 +71,7 @@ def create_peer(
     group_id: str = "thief-local",
     budgets: Budgets | None = None,
     mode: str = "warmup",
+    wire_profile: str | None = None,
 ) -> PeerFacade:
     """Public factory creating a validated PeerFacade.
 
@@ -137,10 +152,19 @@ def create_peer(
         ch_local, _ = pair(group_id, "loopback-peer")
         channel = ch_local
 
+    # ONE pin and ONE audit wire per series, resolved here and shared by both
+    # greeting paths -- never rebuilt inside the driver (T054).
+    audit_wire = resolve_audit_wire(wire_profile)
+    opponent_pin = OpponentPin()
+
     return PeerFacade(
         channel=channel,
         engine=engine,
         config=peer_cfg,
         name=group_id,
         mode=mode,
+        opponent_pin=opponent_pin,
+        subgame_driver=negotiated_subgame_driver(
+            group_id, opponent_pin=opponent_pin, audit_wire=audit_wire,
+        ),
     )

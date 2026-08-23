@@ -18,8 +18,6 @@ from thief_peer.scent.model import Trail, make_trail
 from thief_peer.wire.capture_exchange import (
     absorb_declarations,
     claim_hits_own_cell,
-    declare_own_action,
-    resolve_claims,
 )
 
 
@@ -107,46 +105,16 @@ class SubgameSession:
         assert self.engine is not None
         return claim_hits_own_cell(self.engine, message)
 
-    def build_result(
-        self,
-        *,
-        move: str,
-        hint: str,
-        verdict: str = "truth",
-        fallback: bool = False,
-        reasoning: str = "",
-        prompt_text: str = "",
-        response_seconds: float = 0.0,
-        barrier_cell: Cell | None = None,
-    ) -> dict[str, Any]:
-        """Build the ONE sealed result for this turn (Decision metadata + own
-        smell_grid + declarations + claim handling); ``subgame.py`` derives the
-        public projection from it -- never build a second outgoing dict.
+    def build_result(self, **kwargs: Any) -> dict[str, Any]:
+        """Build this turn's ONE sealed payload (see ``wire.sealed_payload``).
 
-        The truthful capture exchange (GAME-006/009/012) is runtime-owned
-        protocol, not a strategy concern, so ``declare_own_action`` attaches this
-        peer's own declarations for whichever role it holds this sub-game.
+        Kept as a method so every existing caller and test keeps its call shape; the
+        construction itself lives next to the terminal-final derivation, which must bind
+        the same post-move `position` from the same engine state.
         """
-        assert self.engine is not None and self.trail is not None
-        smell_grid = self.trail.full_turn(self.engine.position)
-        res: dict[str, Any] = {
-            "move": move,
-            "barrier_cell": list(barrier_cell) if barrier_cell is not None else None,
-            "hint": hint,
-            "verdict": verdict,
-            "fallback": fallback,
-            "reasoning": reasoning,
-            "prompt_text": prompt_text,
-            "response_seconds": response_seconds,
-            "state": self.engine.state_string(),
-            "smell_grid": smell_grid,
-        }
-        declare_own_action(self.engine, res, barrier_cell)
-        caught = resolve_claims(self.engine, res, self.pending_claim, self.pending_claim_position)
-        self.pending_claim = None
-        self.pending_claim_position = None
-        self.thief_caught = self.thief_caught or caught
-        return res
+        from thief_peer.wire.sealed_payload import build_result
+
+        return build_result(self, **kwargs)
 
     def terminal(self) -> Outcome | None:
         if self.opponent_terminal is not None:

@@ -16,7 +16,7 @@ seed = 42
 
 [game]
 group_name = "ZeroOne"
-group_id = "zeroone"
+group_id = "ZeroOne1"
 # Publication-intended member identifiers only. Never legal names or government identifiers.
 members = ["id-1001", "id-1002"]
 # BOTH repositories, declared by both peers (App. E rule 49).
@@ -42,3 +42,12 @@ mode = "dry-run"
 
 # [strategy] -- optional: point at YOUR brain subclass (else the shipped heuristic runs)
 # thief_class = "my_team.strategy:MyThiefBrain"
+
+[strategy.thief]
+# PLANQ-008 approved production weight vector. These explicit values keep the example used by
+# the KPI harness identical to the configuration a real peer loads.
+w_dist = 1.0
+w_mob = 0.25
+w_fresh = 0.15
+w_trap = 5.0
+min_confidence = 0.15

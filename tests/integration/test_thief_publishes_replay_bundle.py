@@ -72,4 +72,4 @@ def test_the_runner_wires_publication_rather_than_only_a_summary():
 
     source = inspect.getsource(runner.run_one_peer)
     assert "publish_replay_bundle(artifacts_dir, result)" in source
-    assert "_publish_kit(" in source
+    assert "publish_kit(" in source

@@ -13,6 +13,7 @@ from thief_peer.infra.openrouter_client import OpenRouterConnectionError
 from thief_peer.reporting.runtime_artifacts import write_artifacts
 from thief_peer.runner import run_one_peer
 from thief_peer.sdk import create_peer
+from thief_peer.wire.runtime_services import RuntimeServices
 
 
 class _ScriptedClient:
@@ -115,7 +116,10 @@ def test_cli_runner_passes_composed_provider_into_sdk(
             return SeriesResult("g", "u", ledger=[], settled=False,
                                 settled_outcome=Outcome.TAMPER_FORFEIT)
 
-    monkeypatch.setattr(runner, "compose_text_provider", lambda *_a, **_k: provider)
+    monkeypatch.setattr(
+        runner, "compose_runtime_services",
+        lambda *_a, **_k: RuntimeServices(provider, None),
+    )
     monkeypatch.setattr(runner, "serve_background", lambda *_a, **_k: None)
     monkeypatch.setattr(runner, "edge_answers", lambda *_a, **_k: True)
     monkeypatch.setattr(runner, "McpChannel", _Channel)

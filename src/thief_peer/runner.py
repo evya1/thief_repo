@@ -12,6 +12,8 @@ from common.transport.loopback import Inboxes
 from common.transport.mcp_client import McpChannel, edge_answers
 from common.transport.mcp_server import serve_background
 from common.transport.series import SeriesResult
+from thief_peer.reporting.kit_bundle import publish_kit_bundle
+from thief_peer.reporting.replay_bundle import publish_replay_bundle
 from thief_peer.sdk import Budgets, create_peer
 from thief_peer.strategy import Strategy
 
@@ -53,6 +55,36 @@ def write_artifacts(
     (path / filename).write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
+def _publish_kit(artifacts_dir, result: SeriesResult, *, group_id: str, mode: str) -> None:
+    """Publish the kit projection beside the internal bundle.
+
+    Deliberately non-fatal: the internal bundle is the evidence of record and is already on
+    disk by the time we get here. A projection that cannot be written is a reporting problem
+    to be seen and fixed, not a reason to lose a settled series.
+    """
+    try:
+        publish_kit_bundle(
+            artifacts_dir, result, our_group=group_id, counted=(mode == "counted")
+        )
+    except Exception as exc:  # noqa: BLE001 - never let a projection fault destroy evidence
+        logger.error("Kit bundle projection failed (internal bundle is intact): %s", exc)
+
+
+def _publish_kit(artifacts_dir, result: SeriesResult, *, group_id: str, mode: str) -> None:
+    """Publish the kit projection beside the internal bundle.
+
+    Deliberately non-fatal: the internal bundle is the evidence of record and is already on
+    disk by the time we get here. A projection that cannot be written is a reporting problem
+    to be seen and fixed, not a reason to lose a settled series.
+    """
+    try:
+        publish_kit_bundle(
+            artifacts_dir, result, our_group=group_id, counted=(mode == "counted")
+        )
+    except Exception as exc:  # noqa: BLE001 - never let a projection fault destroy evidence
+        logger.error("Kit bundle projection failed (internal bundle is intact): %s", exc)
+
+
 def run_one_peer(
     *,
     listen_host: str = "127.0.0.1",
@@ -70,6 +102,7 @@ def run_one_peer(
     turn_timeout: float = 30.0,
     poll_interval: float = 0.01,
     wire_profile: str | None = None,
+    emit_kit_bundle: bool = True,
 ) -> int:
     """Run one independent peer process: serve MCP, dial peer, run 6 subgames."""
     inboxes = Inboxes()
@@ -122,6 +155,10 @@ def run_one_peer(
 
         if artifacts_dir:
             write_artifacts(artifacts_dir, result, role=role, group_id=group_id, mode=mode)
+            if result.settled:
+                publish_replay_bundle(artifacts_dir, result)
+                if emit_kit_bundle:
+                    _publish_kit(artifacts_dir, result, group_id=group_id, mode=mode)
 
         return 0 if result.settled else 6
     except Exception as exc:

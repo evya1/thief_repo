@@ -17,6 +17,7 @@ from pathlib import Path
 from common.domain.scoring import Role
 from common.transport.loopback import pair
 from common.transport.series import PeerFacade, SeriesResult
+from thief_peer.reporting.kit_bundle import publish_kit_bundle
 from thief_peer.reporting.replay_bundle import publish_replay_bundle
 from thief_peer.sdk import Budgets, create_peer, verify_replay_bundle
 
@@ -74,10 +75,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     bundle_dir = publish_replay_bundle(args.artifact_root, result)
+    # _run_pair returns the THIEF side's result, so our seat here is the thief.
+    kit_dir = publish_kit_bundle(
+        args.artifact_root, result, our_group="smoke-thief", counted=False
+    )
     report = verify_replay_bundle(bundle_dir)
     c = report.coverage
     summary = {
         "bundle_dir": str(bundle_dir),
+        "kit_bundle_dir": str(kit_dir),
         "game_id": result.game_id,
         "game_uid": result.game_uid,
         "settled_outcome": result.settled_outcome.value,
@@ -92,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
         print(f"bundle: {bundle_dir}")
+        print(f"kit bundle: {kit_dir}")
         print(report.to_human())
     return 0 if report.verdict.value == "verified_ok" else 1
 

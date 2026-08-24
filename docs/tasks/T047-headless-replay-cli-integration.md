@@ -236,7 +236,3 @@ describing that it *never* does so.
   160 lines with them inline).
 - `docs/evidence/replay/` includes a short `README.md` describing provenance and sanitization,
   in addition to the three required transcripts.
-
-### Blockers
-
-None.

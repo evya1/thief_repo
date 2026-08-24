@@ -126,5 +126,3 @@ gate is the authoritative coverage check.)
 **Deviations:** none from Police's design. Files split identically
 (`gatekeeper_types.py` / `retry_policy.py` / `external_api_gatekeeper.py`) to respect the
 150-logical-line cap.
-
-**Remaining:** none — T048 is complete in both repositories.

@@ -133,9 +133,8 @@ the baseline.
 
 `source_dirs = ["src", "common"]` was set, and a pinned `[line_cap_baseline]` TOML table
 (6 entries, each independently measured as above) was added as the last section of
-`config/repo_quality.toml`, so the gate now scans production code honestly without
-silently sweeping the pre-existing oversized-file debt under the rug or compressing code
-to fit.
+`config/repo_quality.toml`, so the gate scans all configured production code while preserving
+the measured baseline.
 
 Ratchet semantics (implemented in new `scripts/line_cap_ratchet.py`, split out of
 `scripts/check_line_cap.py` — which becomes a thin CLI — to keep both modules under the
@@ -198,19 +197,3 @@ git diff --check
   157 respectively) at this commit's HEAD. Per this task's own instruction to measure
   independently rather than copy stale numbers, the baseline pins the counts actually
   measured now, not the packet's numbers.
-
-### Residual repository-wide debt outside the accepted C06 completion
-
-- `scripts/check_planning_graph.py` write-set-overlap reconciliation (`T009`/`T030`,
-  `T016`/`T032`) — untouched.
-- Wiring `scripts/check_planning_graph.py` into `scripts/run_quality_gates.py` or CI —
-  untouched.
-- Splitting the 6 pinned oversized files under 150 logical lines — untouched; they are
-  pinned in the baseline as a starting inventory for later behavior-preserving splits,
-  not split in this pass.
-- `docs/TODO.md` / `README.md` staleness (T007 status vs. `police-strategy`/
-  `thief-strategy` branches; PR #36 outcome) — untouched.
-
-### Blockers
-
-None for the accepted C06 scope. The residual repository-wide debt above is tracked separately.

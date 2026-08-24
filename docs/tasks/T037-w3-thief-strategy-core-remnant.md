@@ -32,19 +32,16 @@ write_set:
 risk: low
 ---
 
-# T037 — Wave W3a: Thief Strategy Core — Remaining Gaps Only (thief_repo)
+# T037 — Wave W3a: Thief Strategy Core Verification (thief_repo)
 
 ## Scope note (why this task is narrow)
 
 `evya1/thief_repo#36` (merged into `thief-strategy`, base `f506bd8`, head `5c300bb`) already
 landed: a pure scoring core (`strategy/scoring.py`, `select_thief_action` as testable data
 in/out, `ThiefWeights` dataclass), explicit `orthogonal_mobility`/`destination` computation,
-wire-boundary evidence normalization (`wire/evidence.py`, H3), and a documented finding that
-the FR-T3 trap TERM is structurally unobservable on reachable non-terminal states (domain
-physics gap, not a scoring bug). **This task does not redo that work.** Its only remaining
-scope is verifying and closing the `ADR-006` gap: does the already-landed scoring order match
-the approved Thief hard-constraint priority list, and do the two required negative-control
-scenarios exist.
+wire-boundary evidence normalization (`wire/evidence.py`, H3), with the FR-T3 trap term handled by
+the reachable-state domain profile. This task verifies that the landed scoring order matches the
+approved Thief hard-constraint priority list and that both required negative controls exist.
 
 ## Expected outcome
 

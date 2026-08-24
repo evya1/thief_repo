@@ -1,6 +1,6 @@
 ---
 id: T013
-status: in_review
+status: done
 priority: P0
 task_type: component
 component: C03
@@ -77,19 +77,19 @@ tokens are never inferred from text. Booleans and negative counts are rejected.
 
 ## Acceptance criteria
 
-- [ ] All required Step 0 fields are collected before the first move and signed through the integrity boundary using the authorized Step 0 signing procedure once provisioned. `{#step_zero_key}`
-- [ ] Missing or unverifiable Git commit/config version blocks counted play.
-- [ ] Token input/output usage is aggregated separately per sub-game and per series and projected
+- [x] All required Step 0 fields are collected before the first move and signed through the integrity boundary using the authorized Step 0 signing procedure once provisioned. `{#step_zero_key}`
+- [x] Missing or unverifiable Git commit/config version blocks counted play.
+- [x] Token input/output usage is aggregated separately per sub-game and per series and projected
       into the existing artifact evidence keys, with an explicit `known_zero` / `known_nonzero` /
       `unknown` status. Booleans and negative counts are rejected.
-- [ ] Template and non-claim events contribute exactly 0/0; unknown provider usage stays unknown and
+- [x] Template and non-claim events contribute exactly 0/0; unknown provider usage stays unknown and
       is never inferred from text; no cost or fairness normalization is invented.
-- [ ] Unknown usage makes **counted play ineligible** — a deterministic fallback cannot erase tokens
+- [x] Unknown usage makes **counted play ineligible** — a deterministic fallback cannot erase tokens
       already consumed by the attempted call — while **warmup** retains an explicit unknown status.
-- [ ] Tests cover mixed known/unknown usage, the counted-versus-warmup policy, six sub-games,
+- [x] Tests cover mixed known/unknown usage, the counted-versus-warmup policy, six sub-games,
       duplicates, replay, and stable serialization.
-- [ ] No lecturer-side normalization formula is recreated locally.
-- [ ] Tests use deterministic system-info and usage adapters without exposing host secrets.
+- [x] No lecturer-side normalization formula is recreated locally.
+- [x] Tests use deterministic system-info and usage adapters without exposing host secrets.
 
 ## Verification
 
@@ -106,15 +106,9 @@ Report files changed, tests executed, exact test results, decisions made, deviat
 
 ## Result and evidence
 
-**Status: `implementation_present` / `in_review`, not `done`.** Reviewed, tested mechanical port
-of the Police T013 implementation (byte-identical modulo `police_peer` -> `thief_peer` renames,
-verified by reverse-diff). Same remaining integration edge as Police: the signing seam
-(`build_signed_step_zero`) is implemented and fails closed, but no composition root yet supplies
-a real signer (T051's job, gated on **INPUT-003** -- no course-supplied signing credential
-observed), and the token ledger is not yet projected into `reporting/schemas.py`'s
-`SeriesResult` token fields (T051 per-turn recording + T055 artifact projection). The acceptance
-criterion "collected and signed before the first move ... once provisioned" stays open on the
-`step_zero_key` criterion gate.
+Completed on `production-fixes`. This is the reviewed, tested semantic port of Police T013;
+Step-0 evidence, signing enforcement, token accounting, counted eligibility, and artifact
+projection are integrated through T051/T055.
 
 - Files: `src/thief_peer/evidence/{__init__,tokens,token_ledger,step_zero,runtime_summary}.py`,
   `tests/unit/evidence/{test_tokens,test_token_ledger,test_step_zero,token_fixtures}.py`.
@@ -129,5 +123,4 @@ criterion "collected and signed before the first move ... once provisioned" stay
   (unchanged; no new baseline entries).
 - `git diff --check` -> clean.
 
-**Newly discovered work:** none. **Deviations:** none beyond the Police port's own
-module-split deviation. **Blockers:** INPUT-003, same as Police. (orchestrator, 2026-08-23)
+**Deviations:** none beyond the Police port's module split.

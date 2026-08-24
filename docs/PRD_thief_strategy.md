@@ -720,7 +720,7 @@ policy consumes whichever locked profile the belief board produces (ADR-004).
   §6.4 belief + Manhattan; §6.5/§6.5.1 verbal layer + four provider modes) and ch. 10
   (stage order; the 3+4 fold, §1.1).
 - `docs/report-game-p2p-cop-chase-strategy.md` §5 (the reference brains, the `Decision`
-  shape, the injection seam) and §10 ("deliberately not implemented" = the headroom this
+  shape, the injection seam) and §10 (the extension headroom this
   stage claims) — non-authoritative reference implementation; registered evidence only, per
   LEAGUE_COMPATIBILITY.
 - `police_repo/docs/PRD_police_strategy.md` (planned) — the mirror of the shared-core

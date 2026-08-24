@@ -81,6 +81,8 @@ uv run thief-peer --help
 See [`docs/CLI.md`](docs/CLI.md) for entry points, options, local and remote examples, mode
 behavior, configuration precedence, exit codes, and artifact boundaries.
 
+See [`docs/GMAIL_API.md`](docs/GMAIL_API.md) for the implemented Gmail/email API and wiring status.
+
 See [`docs/reporting/README.md`](docs/reporting/README.md) for the reporting API and artifact flow.
 
 **Replay (verified, works today).** `thief_peer.sdk.verify_replay_bundle(path)` is the sole

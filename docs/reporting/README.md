@@ -16,7 +16,7 @@ Do not interchange these identically named classes.
 | `__init__.py` | This page | Empty package marker; no public symbols. |
 | `schemas.py` | [Schemas and signing](schemas.md) | `internal-1` data classes, builders, validation, signing, and serialization. |
 | `artifacts.py` | [Artifact bundles](artifacts.md) | Reconciles exactly 14 `internal-1` email attachments. |
-| `gmail.py` | [Gmail delivery](gmail.md) | Send-only Gmail message construction and durable send idempotency. |
+| `gmail.py` | [Gmail delivery](gmail.md) | Send-only Gmail message construction, durable send idempotency, and the kit-compatible `send_kit_result` (one result / canonical body). |
 | `pipeline.py` | [Reporting pipeline](pipeline.md) | Agreement gate, bundle validation, Gmail delivery, and pipeline idempotency. |
 | `replay_documents.py` | [Replay documents](replay-documents.md) | Pure builders for the 15-file `internal-interop-1` replay set. |
 | `replay_bundle.py` | [Replay publication](replay-bundle.md) | Atomic publication and self-verification of replay directories. |
@@ -63,7 +63,7 @@ Data flows as follows:
 
 ## Outputs and errors
 
-Replay files are indented, sorted-key UTF-8 JSON with a trailing newline. Kit files are indented UTF-8 JSON with a trailing newline. The `internal-1` attachments use compact canonical JSON bytes. Gmail builds a MIME message whose attachments are all declared as `application/json`.
+- Replay files are indented, sorted-key UTF-8 JSON with a trailing newline. Kit files are indented UTF-8 JSON with a trailing newline. The `internal-1` attachments use compact canonical JSON bytes. `send_kit_result` emails the kit result as the **canonical compact** body plus that same file as the single attachment. Gmail builds a MIME message whose attachments are all declared as `application/json`.
 
 Atomic publishers create missing parent directories, refuse an existing destination, never append, and normally remove staging data on failure. A lock acquired before a later failure is intentionally left for recovery; a pre-existing lock is reported and not removed. See the module pages for exact aliases and failure details.
 

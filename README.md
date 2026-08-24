@@ -81,6 +81,8 @@ uv run thief-peer --help
 See [`docs/CLI.md`](docs/CLI.md) for entry points, options, local and remote examples, mode
 behavior, configuration precedence, exit codes, and artifact boundaries.
 
+See [`docs/reporting/README.md`](docs/reporting/README.md) for the reporting API and artifact flow.
+
 **Replay (verified, works today).** `thief_peer.sdk.verify_replay_bundle(path)` is the sole
 public entrypoint; `scripts/replay.py` is a thin CLI over it:
 

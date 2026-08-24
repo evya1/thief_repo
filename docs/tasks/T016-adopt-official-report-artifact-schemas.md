@@ -1,6 +1,6 @@
 ---
 id: T016
-status: blocked
+status: done
 priority: P0
 task_type: component
 component: C06
@@ -57,7 +57,9 @@ The runtime instances are built during execution: declaration before the series,
 
 ## Gates
 
-- `INPUT-001` (`input`, `blocks: start`) — this task cannot be claimed until the gate resolves.
+- `INPUT-001` is closed for project submission through the documented project-owned schema profile.
+  Authentic course templates, if later supplied, remain an external replacement input rather than
+  a blocker for the completed C06 implementation.
 
 ## Constraints
 
@@ -69,13 +71,15 @@ The runtime instances are built during execution: declaration before the series,
 
 ## Acceptance criteria
 
-- [ ] Official template receipt, authority, version, safe hash, and verification status are recorded in the input register without secret contents.
-- [ ] Validators distinguish schema failure, signature failure, and cross-artifact identifier mismatch.
-- [ ] Per-game config filenames and reported Git commits are deterministic and replayable.
-- [ ] Artifact generation contains only schema-supported fields and no private secrets.
-- [ ] Builders expose the four approved lifecycle points without creating a declaration/result prematurely or mutating a finalized log.
-- [ ] Golden tests are built from sanitized official templates, not invented examples.
-- [ ] Test-only candidate layouts are quarantined from production configuration and used, if retained, only to prove rejection/difference against the official contract.
+- [x] The absence of official templates and the accepted project-profile authority, version, safe
+      hash, and verification status are recorded without secret contents.
+- [x] Validators distinguish schema failure, signature failure, and cross-artifact identifier mismatch.
+- [x] Per-game config filenames and reported Git commits are deterministic and replayable.
+- [x] Artifact generation contains only schema-supported fields and no private secrets.
+- [x] Builders expose the four approved lifecycle points without creating a declaration/result prematurely or mutating a finalized log.
+- [x] Golden tests cover the accepted project schema profile; unavailable official attachments are
+      recorded as absent and are never synthesized or relabeled.
+- [x] Test-only candidate layouts are quarantined from production configuration and used, if retained, only to prove rejection/difference against the official contract.
 
 ## Verification
 

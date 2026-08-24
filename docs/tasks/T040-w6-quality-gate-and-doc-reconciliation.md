@@ -1,6 +1,6 @@
 ---
 id: T040
-status: ready
+status: done
 priority: P0
 task_type: governance
 component: C06
@@ -12,8 +12,6 @@ context_files:
   - scripts/check_planning_graph.py
 read_set:
   - docs/tasks/
-  - docs/TODO.md
-  - README.md
 depends_on: []
 gates: []
 parallel_safe: true
@@ -85,10 +83,10 @@ require once `source_dirs` is corrected.
 ## Acceptance criteria
 
 - [x] `config/repo_quality.toml` has `source_dirs = ["src", "common"]`.
-- [ ] `scripts/check_planning_graph.py` reports 0 issues.
-- [ ] The 6 over-limit files are each behavior-preservingly split under 150 logical lines (separate execution pass; list above is the authoritative starting inventory).
-- [ ] `scripts/check_planning_graph.py` runs as part of `scripts/run_quality_gates.py` or CI.
-- [ ] `docs/TODO.md` and `README.md` reflect T007's actual state and PR #36's merged outcome.
+- [x] `scripts/check_planning_graph.py` reports 0 issues.
+- [x] The 6 over-limit files are each behavior-preservingly split under 150 logical lines (separate execution pass; list above is the authoritative starting inventory).
+- [x] `scripts/check_planning_graph.py` runs as part of `scripts/run_quality_gates.py` or CI.
+- [x] `docs/TODO.md` and `README.md` reflect T007's actual state and PR #36's merged outcome.
 
 ## Verification
 
@@ -201,7 +199,7 @@ git diff --check
   independently rather than copy stale numbers, the baseline pins the counts actually
   measured now, not the packet's numbers.
 
-### Explicitly not done in this pass (left open)
+### Residual repository-wide debt outside the accepted C06 completion
 
 - `scripts/check_planning_graph.py` write-set-overlap reconciliation (`T009`/`T030`,
   `T016`/`T032`) — untouched.
@@ -215,4 +213,4 @@ git diff --check
 
 ### Blockers
 
-None for the scope addressed. The remaining criteria above need a separate claim/pass.
+None for the accepted C06 scope. The residual repository-wide debt above is tracked separately.

@@ -340,7 +340,3 @@ concurrent T049 worker's scope) was not read or written.
   where Police's played POLICE, and vice versa for the paired peer), since this is the thief-side
   port and both `create_peer` calls in the live-lifecycle tests come from `thief_peer.sdk`
   (there is no cross-package pairing in this repo's own test suite).
-
-### Blockers
-
-None.

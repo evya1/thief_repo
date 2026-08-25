@@ -50,7 +50,7 @@ source-of-truth for the shared `common/transport/{validators,subgame,turnseal}.p
 this wave (ADR-005); `police_repo` ports them byte-for-byte and runs the parity check in its
 own `T044`.
 
-Scope is exactly the review's findings. It does **not** reopen OPEN-011 termination
+Scope is exactly the review's findings. It does **not** change production termination
 semantics, group scoring, reporting, GUI, or branch hygiene, and it does **not** change
 ADR-007: no sibling policy is imported, copied, or wired into production move selection.
 

@@ -1,13 +1,7 @@
-"""HintWriter -- local deterministic hint plan + optional TextProvider wording.
+"""Deterministic hint planning plus optional provider wording.
 
-Shared core (mirrors police_repo identically modulo import path and role
-constant). Local code selects the claim (truth/lie/non-claim), the
-destination-based landmark, and the verdict (STRAT-008); a TextProvider, if
-present, supplies wording only, through the allowlisted
-``HintRenderRequest`` (ADR-010). Every typed or unexpected provider failure
-falls back to the plan's own deterministic template with a recorded
-``FallbackReason``; the verdict is never taken from the provider (closes
-F-12/F-13).
+The local plan owns claim, landmark, and verdict; provider failure always falls
+back to template text with typed audit metadata.
 """
 
 from __future__ import annotations
@@ -63,12 +57,17 @@ class HintWriter:
         arena: str,
         max_words: int,
         provider: TextProvider | None = None,
+        every_n_steps: int = 1,
     ) -> None:
+        if every_n_steps < 1:
+            raise ValueError("every_n_steps must be at least 1")
         self.role = role
         self.rng = rng
         self.arena = arena
         self.max_words = max_words
         self.provider = provider
+        self.every_n_steps = every_n_steps
+        self._eligible_turns = 0
         # Sealed audit state (SEC-009), never part of the public (hint,
         # verdict) return. Per-turn: valid only until the next say() call --
         # callers (e.g. BrainBase.decide) must read it immediately after.
@@ -96,6 +95,9 @@ class HintWriter:
             return HintResult(plan.fallback_text, "truth", FallbackReason.NON_CLAIM, TokenUsage(0, 0))
         if self.provider is None:
             return self._fallback(plan, FallbackReason.NO_PROVIDER, TokenUsage(0, 0))
+        self._eligible_turns += 1
+        if self._eligible_turns % self.every_n_steps:
+            return self._fallback(plan, FallbackReason.SKIPPED, TokenUsage(0, 0))
         request = HintRenderRequest(
             role=self.role, arena=self.arena, target_landmark=plan.target_landmark,
             claim=plan.claim, max_words=self.max_words,
@@ -162,13 +164,7 @@ class HintWriter:
         return "lie"
 
     def _cap(self, text: str) -> str:
-        """Truncate to THIS instance's configured ``max_words``.
-
-        No silent fallback to a static default: every path (template and
-        provider) truncates to ``self.max_words`` exactly, whatever value
-        this writer was constructed with (a bug previously let a
-        differently-configured writer silently cap at the hardcoded 15).
-        """
+        """Truncate to the configured max_words, never a static default."""
         words = text.split()
         if len(words) <= self.max_words:
             return text

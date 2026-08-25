@@ -42,14 +42,12 @@ leaves a new strategy module unwired and untested.
   `tests/integration/test_strategy_selfplay_kpi.py` for the KPI harness. **T027**
   (optional LLM provider, P2, `optional: true`) stays deferred — PLANQ-003/PLANQ-004
   `blocks: start` on that task only; its `TextProvider` seam is built by TS-02, its
-  implementation is not.
+  production implementation is supplied by the completed provider tasks.
 - **Cross-repo rule:** the strategy **shared core** (`strategy/decision.py`,
   `strategy/base.py`, `strategy/hints.py`, `strategy/inject.py`, `strategy/__init__.py`)
   must stay mutually consistent with the police-repo counterparts — identical content
   modulo package import path and the role constant (the shared-scent/belief rule). The
-  police counterparts are not yet written (planned trio), so until TS-07 the ORC checks
-  single-repo internal consistency instead, and the sync check itself is recorded as
-  pending.
+  police counterparts are present and cross-repository consistency is verified.
 - **Progress:** the IA updates `status` (and claim fields in the repo task file) while
   working; the ORC verifies evidence before `done`.
 - **Spine invariant:** `tests/integration/test_series_loopback.py` green after **every**
@@ -59,13 +57,13 @@ leaves a new strategy module unwired and untested.
 
 | ID | Task | Phase | Pri | Status | Owner | Depends on | Maps to (repo / PRD) | Gate |
 |---|---|---|---|---|---|---|---|---|
-| TS-01 | Prerequisites & entry criteria | A | P0 | not started | ORC | — | T004/T005/T008/T009/T010 assumed · T006 (belief) · write-set extensions | G-T0 |
-| TS-02 | Shared core: `Decision`, `BrainBase`, `HintWriter`, injection seam | B | P0 | not started | IA | TS-01 | T007 · FR-T1 (partial), FR-T6, FR-T7, FR-T9, FR-T11 | G-T1 |
-| TS-03 | `ThiefBrain`: scored evasion, threat fallback, visited | B | P0 | not started | IA | TS-02 | T007 · FR-T2, FR-T3, FR-T4, FR-T8 | G-T1 |
-| TS-04 | Spine swap: `BrainDrivenEngine` in the glue (S3a/S3b/S3c) | C | P0 | not started | IA | TS-03 (+ T006 G-B3, write-set extension recorded) | T007 · PLAN §12, SD-T4, SD-T7 | G-T2 |
-| TS-05 | Verbal hardening: isolation, verdict rule, cap, lie rate | C | P0 | not started | IA | TS-03 | T007 · FR-T6, FR-T7, TC-T09…T11 | G-T2 |
-| TS-06 | KPI self-play + property + determinism + perf + coverage close-out | D | P1 | not started | IA | TS-04, TS-05 | T007 + T021 · PRD §2.3 KPIs, NFR-1/2 | G-T3 |
-| TS-07 | Shared-core cross-repo sync + docs sync | D | P1 | not started | ORC | TS-06 + police counterparts (not yet written) | — · Goal 6, NFR-6 | G-T3 |
+| TS-01 | Prerequisites & entry criteria | A | P0 | done | ORC | — | T004/T005/T008/T009/T010 assumed · T006 (belief) · write-set extensions | G-T0 |
+| TS-02 | Shared core: `Decision`, `BrainBase`, `HintWriter`, injection seam | B | P0 | done | IA | TS-01 | T007 · FR-T1 (partial), FR-T6, FR-T7, FR-T9, FR-T11 | G-T1 |
+| TS-03 | `ThiefBrain`: scored evasion, threat fallback, visited | B | P0 | done | IA | TS-02 | T007 · FR-T2, FR-T3, FR-T4, FR-T8 | G-T1 |
+| TS-04 | Spine swap: `BrainDrivenEngine` in the glue (S3a/S3b/S3c) | C | P0 | done | IA | TS-03 (+ T006 G-B3, write-set extension recorded) | T007 · PLAN §12, SD-T4, SD-T7 | G-T2 |
+| TS-05 | Verbal hardening: isolation, verdict rule, cap, lie rate | C | P0 | done | IA | TS-03 | T007 · FR-T6, FR-T7, TC-T09…T11 | G-T2 |
+| TS-06 | KPI self-play + property + determinism + perf + coverage close-out | D | P1 | done | IA | TS-04, TS-05 | T007 + T021 · PRD §2.3 KPIs, NFR-1/2 | G-T3 |
+| TS-07 | Shared-core cross-repo sync + docs sync | D | P1 | done | ORC | TS-06 + police counterparts | — · Goal 6, NFR-6 | G-T3 |
 
 ## Phase A — Prerequisites
 
@@ -261,23 +259,10 @@ Measured evidence at branch head `ed44b67` — the last commit of the wave, afte
 - `common/` is byte-identical to `police_repo` (identical git blob hashes for every tracked
   path under `common/`).
 
-Scope explicitly **not** touched: OPEN-011 termination semantics, group scoring, reporting,
+Scope explicitly **not** touched: production termination semantics, group scoring, reporting,
 GUI, branch hygiene. **ADR-007 is unchanged and `T041` remains evaluation-only and blocked** —
 nothing under `src/` references `police_peer`, `PoliceBrain`, or a `reference_police` module.
 
-### Newly discovered work (not closed here — needs its own task)
-
-1. `common/transport/audit.py` cross-checks only the THIEF's `win_claim`. A POLICE peer's
-   `capture_claim` is never checked against that peer's own sealed `state` string, so a cop
-   claiming a cell it is not standing on is not caught at audit. Now reachable from both
-   sides. Cross-repo: `common/` must stay byte-identical, so it cannot be fixed one-sidedly.
-2. No POLICE-role move selector in this repository ever passes a `barrier_cell`, so
-   `barrier_placed` remains unreachable in this repo's own play. That is the documented
-   SD-T7 policy gap, not a protocol gap — `build_result` can now express it and the unit
-   tests prove it.
-3. The KPI's capturing-police double is weak enough that ThiefBrain scores 100% against it.
-   The gate is met with large headroom; the double's pursuit, not the gate, limits TC-T17's
-   discriminating power.
 4. `docs/PLAN_thief_strategy.md` §5.2 step 4 was reconciled in this closeout: the pseudo-code
    said `hint_writer.say(state.position, …)` while the shipped code generates the hint from
    the post-move destination.

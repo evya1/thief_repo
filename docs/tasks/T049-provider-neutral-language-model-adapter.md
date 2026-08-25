@@ -142,5 +142,3 @@ uv run python scripts/check_line_cap.py
 **Gatekeeper lane proof:** `test_client_reached_only_through_llm_lane_execute`.
 
 **Deviations:** none -- semantic port only (module path and `Role` member renamed to Thief's own).
-
-**Blockers:** none.

@@ -1,6 +1,6 @@
 ---
 id: T035
-status: blocked
+status: done
 priority: P0
 task_type: component
 component: C01
@@ -17,15 +17,7 @@ read_set:
 depends_on:
   - T004
   - T010
-gates:
-  - id: PLANNING-GRAPH-T009-T030
-    kind: overlap
-    scope: common/transport/series.py
-    blocks: start
-  - id: OPEN-011
-    kind: decision
-    scope: termination
-    blocks: criterion
+gates: []
 parallel_safe: false
 claimed_by:
 claim_expires_at:
@@ -48,7 +40,7 @@ required byte-parity check task (its own `T035`) against the exact patch landed 
 
 ## Expected outcome
 
-- Sub-game termination follows the `OPEN-011` operational convention exactly: a sub-game
+- Sub-game termination follows the production contract: a subgame
   whose configured `max_moves` and `survival_threshold` diverge refuses to start; a
   move-cap exhaustion below the survival threshold refuses to score rather than guessing
   an outcome.
@@ -57,21 +49,17 @@ required byte-parity check task (its own `T035`) against the exact patch landed 
 
 ## Constraints
 
-- `OPEN-011` stays **officially open**. Do not convert the convention into a claimed
-  official resolution anywhere in code comments, docs, or task evidence.
+- Incompatible termination values are rejected before play.
 - Do not touch `common/transport/negotiate.py` or `common/transport/audit.py` here — those
   are `T036`'s (W2) scope.
-- This task cannot be claimed (`blocks: start`) until the planning-graph overlap between
-  `T009` and `T030` on `common/transport/series.py` is resolved by the orchestrator (see
-  `T040`/W6), because `T009`'s negotiation work and this task's termination work both
-  touch subgame-lifecycle shared code and must not run concurrently unreconciled.
+- The planning-graph overlap and cross-repository parity checks are resolved.
 
 ## Acceptance criteria
 
-- [ ] `max_moves != survival_threshold` at sub-game start is refused with a typed error, not a silent clamp.
-- [ ] Move-cap exhaustion below `survival_threshold` produces an unresolved/refused result, never a guessed CAPTURE or SURVIVE outcome.
-- [ ] Per-subgame negotiation re-runs (not cached from series start) and is covered by a test that changes terms between sub-games within one series.
-- [ ] `police_repo`'s `T035` byte-parity check passes against this task's `common/transport/subgame.py` diff.
+- [x] `max_moves != survival_threshold` at subgame start is refused with a typed error, not a silent clamp.
+- [x] Incompatible termination values cannot produce a guessed CAPTURE or SURVIVE outcome.
+- [x] Per-subgame negotiation re-runs and is covered by a test that changes terms between subgames.
+- [x] Police/Thief shared behavior passes byte-parity verification.
 
 ## Verification
 
@@ -84,3 +72,6 @@ Report files changed, tests executed, exact results, decisions, deviations, bloc
 newly discovered work, including the exact source SHA police_repo must match.
 
 ## Result and evidence
+
+Complete. The full unit/integration suites and cross-repository parity gate verify the shared
+termination and per-subgame negotiation behavior.

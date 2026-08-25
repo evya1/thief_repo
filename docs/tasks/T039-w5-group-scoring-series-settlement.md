@@ -45,17 +45,17 @@ edits to the same file is exactly the failure mode the checker exists to catch.
 
 - Series-level settlement correctly aggregates group/pool results (not just head-to-head),
   per the project's league/reporting design in `docs/components/C06-reporting-league/`.
-- Settlement respects the `OPEN-011` convention: it never silently scores an unresolved
+- Settlement respects the `production termination guard` convention: it never silently scores an incompatible
   move-cap exhaustion, and it refuses (not guesses) when constituent sub-game outcomes are
-  themselves unresolved.
+  invalid.
 - `common/transport/series.py`'s role in settlement is disentangled from `T009`'s
   negotiation-contract scope so both can proceed without file-level collision.
 
 ## Constraints
 
 - Do not touch reporting artifact schemas (`T016`/`T032` scope) — settlement math only.
-- Do not resolve `OPEN-011` itself; only build settlement that correctly refuses on the
-  documented ambiguous cases.
+- Do not modify the production termination guard; settlement correctly refuses the
+  documented incompatible-contract cases.
 
 ## Acceptance criteria
 

@@ -66,7 +66,7 @@ Reported but NOT fixed (out of this slice's scope, all reproduced by the bug hun
 BH-02 duplicate-audit ledger desync; BH-05 capture unreachable (police branch is `pass`);
 BH-06 league scorer cannot score `timeout`/`tamper_forfeit`, 0-0 series names thief winner;
 BH-07 wire turn omits `smell_grid`/`timestamp`, no receive-path validation;
-BH-08/OPEN-011 `survival_threshold` dropped by `TERMS_KEYS`, guard unreachable, and
+BH-08/production termination guard `survival_threshold` dropped by `TERMS_KEYS`, guard unreachable, and
 `subgame.py` invents `TECHNICAL_LOSS` at move-cap exhaustion; BH-09 complementary-role
 check hard-disabled → same-role pairing deadlocks; BH-11 `Outcome.TIMEOUT` never assigned;
 BH-12 series outcome = last sub-game only, `audits_present` hardcoded `True`;

@@ -259,7 +259,7 @@ Measured evidence at branch head `ed44b67` — the last commit of the wave, afte
 - `common/` is byte-identical to `police_repo` (identical git blob hashes for every tracked
   path under `common/`).
 
-Scope explicitly **not** touched: OPEN-011 termination semantics, group scoring, reporting,
+Scope explicitly **not** touched: production termination semantics, group scoring, reporting,
 GUI, branch hygiene. **ADR-007 is unchanged and `T041` remains evaluation-only and blocked** —
 nothing under `src/` references `police_peer`, `PoliceBrain`, or a `reference_police` module.
 

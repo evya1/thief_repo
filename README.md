@@ -259,26 +259,36 @@ The exact tagged commit is the submission release. No generated credentials, pri
 <!-- generated aggregate data only -->
 ## AI Usage
 
-This dashboard combines private-input OpenRouter activity with a committed, sanitized Claude Code aggregate. Only aggregate categories and calendar-day buckets are published.
+> [!IMPORTANT]
+> ### Total AI / LLM Cost — **$675.37**
+> **OpenRouter:** $40.87 · **Claude Code:** $410.76 · **Codex:** $223.73 estimated
+>
+> Sanitized aggregate project usage only — no secrets, credentials, personal identifiers, session IDs, request IDs, UUIDs, usernames, or private metadata are published.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ai-usage-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/ai-usage-light.svg">
-  <img alt="Aggregated OpenRouter and Claude Code usage and accounted cost" src="docs/assets/ai-usage-light.svg">
+  <img alt="Aggregated OpenRouter, Claude Code, and Codex usage and cost" src="docs/assets/ai-usage-light.svg">
 </picture>
+
+This dashboard combines the frozen OpenRouter and Claude Code baseline with a sanitized aggregate of completed Codex sessions. Only aggregate categories and calendar-day buckets are published.
 
 ### Reconciliation
 
 | Metric | Aggregate |
 | --- | ---: |
-| Combined accounted spend | **$451.63** (`$451.634392` reconciled) |
-| OpenRouter reported spend | $40.874392 |
+| Total AI / LLM cost | **$675.37** |
+| OpenRouter reported spend | $40.87 |
 | Claude Code accounted spend | $410.76 |
 | Claude Code source-reported spend | $251.20 |
+| Codex API list-price estimate | $223.73 |
 | OpenRouter requests | 4,142 |
 | Claude Code sessions | 18 |
-| Combined non-cache input / prompt tokens | 309,147,592 |
-| Combined non-cache output / completion tokens | 3,191,327 |
+| Codex sessions | 14 |
+| Combined non-cache input / prompt tokens | 318,631,659 |
+| Combined non-cache output / completion tokens | 4,657,926 |
+
+OpenRouter covers calendar days `2026-08-17` through `2026-08-21`. Codex covers completed session data from `2026-08-24` through `2026-08-25`. No Claude Code date range was inferred. Requests and sessions remain separate activity units.
 
 ### Claude Code model summary
 
@@ -292,6 +302,19 @@ This dashboard combines private-input OpenRouter activity with a committed, sani
 | **Total** | **18 sessions** | **26,394** | **534,216** | **1,759,200,000** | **55,757,300** | **$410.76** |
 
 Opus 4.8 is a $159.56 list-price equivalent calculated from [Anthropic's standard pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching): $5/M input, $25/M output, $6.25/M default five-minute cache writes, and $0.50/M cache reads. Other Claude costs remain source-reported.
+
+Session appearances are not additive because a session may use more than one model. Cache reads and cache writes are reported separately and are not treated as normal input tokens.
+
+### Codex model summary
+
+| Model | Session appearances | Non-cache input | Output | Reasoning output | Cache read | Cache write | Estimated cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| GPT-5.6 Sol | 14 | 9,484,067 | 1,466,599 | 494,310 | 391,165,184 | 0 | $223.73 |
+| **Total** | **14 sessions** | **9,484,067** | **1,466,599** | **494,310** | **391,165,184** | **0** | **$223.73** |
+
+Codex records do not include billed cost. The estimate uses [OpenAI's GPT-5.6 Sol promotional API pricing](https://developers.openai.com/api/docs/models/gpt-5.6-sol): $4.00/M non-cache input, $0.40/M cached input, $5.00/M cache writes, and $20.00/M output. Reasoning output is included in output and is not charged twice.
+
+Codex sessions are deduplicated by private session linkage, but only aggregate counts are published. Token counters are taken at each thread's last completion marker; later aborted or incomplete work is excluded.
 
 ### OpenRouter model summary
 
@@ -307,15 +330,17 @@ Opus 4.8 is a $159.56 list-price equivalent calculated from [Anthropic's standar
 | [MoonshotAI: Kimi K2.6](https://openrouter.ai/moonshotai/kimi-k2.6) | <a href="https://openrouter.ai/provider/baidu"><img src="docs/assets/providers/baidu.png" width="16" alt=""> Baidu Qianfan</a>, <a href="https://openrouter.ai/provider/decart"><img src="docs/assets/providers/decart.png" width="16" alt=""> Decart</a> | 8 | 100,584 | 826 | $0.03 | 0.07% |
 | Other (15 models) | Multiple providers | 58 | 324,312 | 2,837 | $0.07 | 0.17% |
 
+> Claude Code includes four sessions that source-reported $0.00. The Opus 4.8 list-price equivalent is included in accounted spend; one $15.65 multi-model session remains unallocated rather than assigning its cost to a model without evidence.
 
-! Claude Code includes four sessions that source-reported $0.00. The Opus 4.8 list-price equivalent is included in accounted spend; one $15.65 multi-model session remains unallocated rather than assigning its cost to a model without evidence.
+> Totals are calculated from full-precision values before public dollar amounts are rounded to two decimal places.
 
 Regenerate with a private input kept outside the repository:
 
 ```bash
 python scripts/generate_usage_dashboard.py \
-  --openrouter-input /absolute/private/path/openrouter_activity.csv \
+  --openrouter-input openrouter_activity.csv \
   --claude-input data/claude-code-usage-aggregate.json \
+  --codex-input data/codex-usage-aggregate.json \
   --output-dir docs/assets \
   --update-readme README.md
 ```

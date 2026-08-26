@@ -21,6 +21,7 @@ claim_expires_at: 2026-08-28T16:30:00Z
 write_set:
   - README.md
   - common/transport/kit_agreement.py
+  - common/transport/kit_artifact_schemas.py
   - common/transport/kit_bundle_validation.py
   - common/transport/kit_consensus.py
   - common/transport/kit_documents.py
@@ -45,6 +46,7 @@ write_set:
   - src/thief_peer/reporting/gmail.py
   - src/thief_peer/cli.py
   - src/thief_peer/evidence/identity_source.py
+  - src/thief_peer/evidence/runtime_summary.py
   - src/thief_peer/reporting/kit_bundle.py
   - src/thief_peer/reporting/kit_bundle_documents.py
   - src/thief_peer/reporting/kit_bundle_publish.py
@@ -63,6 +65,7 @@ write_set:
   - tests/integration/test_mutual_agreement_settles.py
   - tests/integration/test_two_process_smoke.py
   - tests/unit/reporting/test_gmail_kit_result.py
+  - tests/unit/evidence/test_step_zero.py
   - tests/unit/wire/test_result_agreement.py
 ---
 

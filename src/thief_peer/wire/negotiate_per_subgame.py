@@ -37,6 +37,7 @@ def negotiated_subgame_driver(
     *,
     opponent_pin: OpponentPin | None = None,
     audit_wire: object | None = None,
+    skip_sub_games: frozenset[int] = frozenset(),
 ) -> SubgameDriver:
     """Build a `SubgameDriver` that negotiates before every sub-game after the first.
 
@@ -50,7 +51,7 @@ def negotiated_subgame_driver(
     pin = opponent_pin if opponent_pin is not None else OpponentPin()
 
     def _driver(channel, engine, config: PeerConfig, sub_game: int, *, evidence_sink=None) -> SeriesRow:
-        if sub_game > 1:
+        if sub_game > 1 and sub_game not in skip_sub_games:
             _negotiate_subgame(channel, config, group_id, sub_game, pin)
         return inner_driver(channel, engine, config, sub_game, evidence_sink=evidence_sink)
 

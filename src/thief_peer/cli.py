@@ -26,6 +26,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execution mode",
     )
     parser.add_argument("--artifacts-dir", default=None, help="Directory to save reporting artifacts")
+    parser.add_argument(
+        "--resume-sg1-dir", default=None,
+        help="Directory containing validated real SG1/SG2 wire recovery evidence.",
+    )
+    parser.add_argument(
+        "--resume-sg2-dir", default=None,
+        help="Directory containing captured real SG2 turn and audit evidence.",
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--connect-timeout", type=float, default=30.0, help="Peer connect timeout")
     parser.add_argument("--turn-timeout", type=float, default=30.0, help="Turn response timeout")
@@ -78,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
         group_id=args.group_id,
         mode=args.mode,
         artifacts_dir=Path(args.artifacts_dir) if args.artifacts_dir else None,
+        resume_sg1_dir=Path(args.resume_sg1_dir) if args.resume_sg1_dir else None,
+        resume_sg2_dir=Path(args.resume_sg2_dir) if args.resume_sg2_dir else None,
         seed=args.seed,
         role=Role.THIEF,
         connect_timeout=args.connect_timeout,

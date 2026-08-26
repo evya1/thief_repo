@@ -11,7 +11,7 @@ from common.domain.scoring import Role
 from common.transport.audit_wire import resolve_audit_wire
 from common.transport.loopback import pair
 from common.transport.opponent_pin import OpponentPin
-from common.transport.series import PeerConfig, PeerFacade, SeriesResult
+from common.transport.series import PeerConfig, PeerFacade, SeriesResult, SeriesResume
 from thief_peer.evidence.token_ledger import TokenLedger
 from thief_peer.infra.external_api_gatekeeper import ExternalApiGatekeeper
 from thief_peer.infra.llm_client import CompletionClient
@@ -69,6 +69,7 @@ def create_peer(
     text_provider: TextProvider | None | object = _AUTO_TEXT_PROVIDER,
     token_ledger: TokenLedger | None = None,
     listener: LiveListener | None = None,
+    resume: SeriesResume | None = None,
 ) -> PeerFacade:
     """Create a validated production peer from shared JSON and private TOML.
 
@@ -156,7 +157,7 @@ def create_peer(
     # ONE pin and ONE audit wire per series, resolved here and shared by both
     # greeting paths -- never rebuilt inside the driver (T054).
     audit_wire = resolve_audit_wire(wire_profile)
-    opponent_pin = OpponentPin()
+    opponent_pin = OpponentPin(resume.opponent_group_id if resume else None)
 
     return PeerFacade(
         channel=channel,
@@ -165,7 +166,13 @@ def create_peer(
         name=group_id,
         mode=mode,
         opponent_pin=opponent_pin,
+        resume=resume,
         subgame_driver=observe_driver(negotiated_subgame_driver(
             group_id, opponent_pin=opponent_pin, audit_wire=audit_wire,
+            # Only SG2's handshake is captured as already accepted. A recovery after
+            # settled SG2 must negotiate SG3 normally when the opponent reaches it.
+            skip_sub_games=(
+                frozenset({2}) if resume and resume.next_sub_game == 2 else frozenset()
+            ),
         ), listener),
     )

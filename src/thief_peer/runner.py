@@ -24,6 +24,7 @@ from thief_peer.reporting.settlement import publish_kit, settle
 from thief_peer.sdk import Budgets, __version__, create_peer
 from thief_peer.strategy import Strategy
 from thief_peer.wire.config import PrivateConfig, load_private
+from thief_peer.wire.resume import load_sg2_resume
 from thief_peer.wire.runtime_services import compose_runtime_services, report_counted_result
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,8 @@ def run_one_peer(
     email_recipient: str | None = None,
     authorize_email_send: bool = False,
     listener: Callable[[dict], None] | None = None,
+    resume_sg1_dir: Path | str | None = None,
+    resume_sg2_dir: Path | str | None = None,
 ) -> int:
     """Run one independent peer process: serve MCP, dial peer, run 6 subgames."""
     try:
@@ -73,6 +76,15 @@ def run_one_peer(
     inboxes = Inboxes()
     reply_terms = project_terms(raw_config, private.__dict__)
     reply_terms["num_games"] = 6
+    resume = None
+    if resume_sg1_dir is not None:
+        resume = load_sg2_resume(
+            resume_sg1_dir,
+            terms=reply_terms,
+            group_id=group_id,
+            locks=None,
+            settled_sg2_dir=resume_sg2_dir,
+        )
     inboxes.agreement_reply = counter_signed_reply_builder(
         terms=reply_terms, group_id=group_id, natural_role=role,
         identity_block=runtime.greeting_identity,
@@ -107,6 +119,7 @@ def run_one_peer(
             configure_endpoints(
                 police_url=private.endpoints.opponent_police_url or peer_url,
                 thief_url=private.endpoints.opponent_thief_url or peer_url,
+                transition_timeout=connect_timeout,
             )
 
         facade = create_peer(
@@ -128,6 +141,7 @@ def run_one_peer(
             text_provider=services.text_provider,
             token_ledger=runtime.token_ledger,
             listener=listener,
+            resume=resume,
         )
 
         result = facade.run()

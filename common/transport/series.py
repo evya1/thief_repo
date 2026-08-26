@@ -86,6 +86,19 @@ class SeriesResult:
     replay_evidence: tuple[SubgameReplayEvidence, ...] = ()
 
 
+@dataclass(frozen=True)
+class SeriesResume:
+    """Verified state needed to resume after a process loss at a sub-game boundary."""
+
+    game_id: str
+    game_uid: str
+    opponent_group_id: str
+    opponent_identity: dict | None
+    ledger: tuple[SeriesRow, ...]
+    replay_evidence: tuple[SubgameReplayEvidence, ...]
+    next_sub_game: int
+
+
 class TurnEngine(Protocol):
     """The interface the series engine calls to get a move."""
 
@@ -115,6 +128,7 @@ class PeerFacade:
         subgame_driver: SubgameDriver | None = None,
         mode: str | None = None,
         opponent_pin: OpponentPin | None = None,
+        resume: SeriesResume | None = None,
     ) -> None:
         self.channel = channel
         self.engine = engine
@@ -125,19 +139,28 @@ class PeerFacade:
         # per-sub-game negotiation driver, so sub-game 1's verified opponent -- learned
         # right here -- is the one sub-games 2-6 are compared against.
         self._opponent_pin = opponent_pin if opponent_pin is not None else OpponentPin()
-        self._game_id = self._game_uid = self._opponent_group_id = ""
-        self._opponent_identity: dict | None = None
-        self._ledgers: list[SeriesRow] = []
+        self._resume = resume
+        self._game_id = resume.game_id if resume else ""
+        self._game_uid = resume.game_uid if resume else ""
+        self._opponent_group_id = resume.opponent_group_id if resume else ""
+        self._opponent_identity = resume.opponent_identity if resume else None
+        self._ledgers = list(resume.ledger) if resume else []
         self._subgame_driver = subgame_driver or _replay_evidence.default_subgame_driver()
 
     def run(self) -> SeriesResult:
         """Run a full six-sub-game series. Return the result."""
         select_endpoint = getattr(self.channel, "select_for_role", None)
+        first_sub_game = self._resume.next_sub_game if self._resume else 1
         if select_endpoint is not None:
-            select_endpoint(role_for(self.config.natural_role, 1))
-        self._exchange_greeting()
-        evidence = _replay_evidence.EvidenceCollector(self._game_id, self._game_uid)
-        for sub_game in range(1, 7):
+            select_endpoint(role_for(self.config.natural_role, first_sub_game))
+        if self._resume is None:
+            self._exchange_greeting()
+        evidence = _replay_evidence.EvidenceCollector(
+            self._game_id,
+            self._game_uid,
+            initial=self._resume.replay_evidence if self._resume else (),
+        )
+        for sub_game in range(first_sub_game, 7):
             if select_endpoint is not None:
                 select_endpoint(role_for(self.config.natural_role, sub_game))
             row = self._subgame_driver(

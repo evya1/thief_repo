@@ -47,10 +47,10 @@ If the remote send succeeds but `mark_sent` fails, that filesystem/store excepti
 
 ## `GmailSender.send_kit_result`
 
-`send_kit_result(*, game_uid: str, result: dict[str, Any], filename: str | None = None, recipient: str | None = None, subject: str | None = None) -> dict[str, Any]` sends the league-kit-shaped result as a kit-compatible report (SPEC §6.1, WARNINGS §6):
+`send_kit_result(*, game_uid: str, result_bytes: bytes, filename: str, recipient: str | None = None, subject: str | None = None) -> dict[str, Any]` sends the already-published result:
 
-- The MIME text body is the **canonical compact** bytes of `result` (`common.transport.canonical.canonical_bytes`) — never a pretty-printed re-serialization. `EmailMessage` appends a trailing newline, which is accepted.
-- It carries exactly **one** attachment, the same result file, named by `filename` or defaulted to `result_<game_id>.json` (`common.transport.kit_names.result_name`).
+- The MIME text body is a useful human-readable description of the series.
+- It carries exactly **one** attachment named by `filename`, using `result_bytes` unchanged.
 - The other three artifact kinds (declaration, configs, logs) are **not** emailed — they are published in the repos and reached via the result's `links.github`.
 - Idempotency, recipient, scope, and draft guards match `send_report` exactly.
 

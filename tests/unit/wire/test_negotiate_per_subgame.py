@@ -121,6 +121,16 @@ def test_subgame_two_negotiates_correct_alternating_role_and_calls_inner() -> No
     assert sent["role"] == Role.POLICE.value and sent["sub_game_number"] == 2
 
 
+def test_recovery_skips_the_already_accepted_subgame_two_greeting() -> None:
+    ch_a, ch_b = pair("A", "B")
+    calls: list[int] = []
+    driver = negotiated_subgame_driver("A", inner=_stub_inner(calls),
+                                       skip_sub_games=frozenset({2}))
+    driver(ch_a, None, _config(Role.THIEF), 2)
+    assert calls == [2]
+    assert ch_b.poll_agreement() is None
+
+
 @pytest.mark.parametrize(("opp_role", "opp_sub_game", "code"), [
     (Role.THIEF.value, 99, "SPAR-N06"),  # sub-game mismatch
     (Role.POLICE.value, None, "SPAR-N07"),  # role collision -- same as our own subgame-2 role

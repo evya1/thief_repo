@@ -10,12 +10,11 @@ from common.config import ConfigError, load_config
 from common.domain.scoring import Role
 from common.transport.audit_wire import resolve_audit_wire
 from common.transport.loopback import pair
-from common.transport.opponent_pin import OpponentPin
 from common.transport.series import PeerConfig, PeerFacade, SeriesResult, SeriesResume
 from thief_peer.evidence.token_ledger import TokenLedger
 from thief_peer.infra.external_api_gatekeeper import ExternalApiGatekeeper
 from thief_peer.infra.llm_client import CompletionClient
-from thief_peer.live_events import LiveListener, observe, observe_driver
+from thief_peer.live_events import LiveListener, observe
 from thief_peer.replay_service import BundleReplayReport
 from thief_peer.replay_service import verify_bundle as _verify_replay_bundle
 from thief_peer.strategy import Strategy
@@ -30,7 +29,7 @@ from thief_peer.wire.config import (
     project_terms,
 )
 from thief_peer.wire.llm_composition import compose_text_provider
-from thief_peer.wire.negotiate_per_subgame import negotiated_subgame_driver
+from thief_peer.wire.series_composition import compose_series_peer
 from thief_peer.wire.startup import SUPPORTED_SCHEMA_VERSIONS, validate_startup_config
 from thief_peer.wire.strategy_settings import assemble_strategy_config
 
@@ -154,25 +153,14 @@ def create_peer(
         ch_local, _ = pair(group_id, "loopback-peer")
         channel = ch_local
 
-    # ONE pin and ONE audit wire per series, resolved here and shared by both
-    # greeting paths -- never rebuilt inside the driver (T054).
     audit_wire = resolve_audit_wire(wire_profile)
-    opponent_pin = OpponentPin(resume.opponent_group_id if resume else None)
-
-    return PeerFacade(
+    return compose_series_peer(
         channel=channel,
         engine=engine,
         config=peer_cfg,
-        name=group_id,
+        group_id=group_id,
         mode=mode,
-        opponent_pin=opponent_pin,
         resume=resume,
-        subgame_driver=observe_driver(negotiated_subgame_driver(
-            group_id, opponent_pin=opponent_pin, audit_wire=audit_wire,
-            # Only SG2's handshake is captured as already accepted. A recovery after
-            # settled SG2 must negotiate SG3 normally when the opponent reaches it.
-            skip_sub_games=(
-                frozenset({2}) if resume and resume.next_sub_game == 2 else frozenset()
-            ),
-        ), listener),
+        audit_wire=audit_wire,
+        listener=listener,
     )

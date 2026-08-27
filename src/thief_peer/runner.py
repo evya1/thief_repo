@@ -3,29 +3,23 @@
 from __future__ import annotations
 
 import logging
-import time
 from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 
 from common.config import ConfigError, load_config
 from common.domain.scoring import Role
-from common.transport.loopback import Inboxes
-from common.transport.mcp_client import McpChannel, edge_answers
+from common.transport.mcp_client import McpChannel, edge_answers, wait_for_edge
 from common.transport.mcp_server import serve_background
-from common.transport.negotiate import counter_signed_reply_builder
-from common.transport.terms import project_terms
 from thief_peer.evidence.token_ledger import CountedPlayIneligibleError, assert_counted_eligible
 from thief_peer.league.readiness import CountedPlayNotReadyError
 from thief_peer.league.runtime_evidence import prepare_runtime_evidence
-from thief_peer.reporting.replay_bundle import publish_replay_bundle as _publish_replay_bundle
-from thief_peer.reporting.runtime_artifacts import write_artifacts
+from thief_peer.reporting.runtime_artifacts import write_series_artifacts
 from thief_peer.reporting.settlement import publish_kit, settle
 from thief_peer.sdk import Budgets, __version__, create_peer
 from thief_peer.strategy import Strategy
 from thief_peer.wire.config import PrivateConfig, load_private
-from thief_peer.wire.resume import load_sg2_resume
 from thief_peer.wire.runtime_services import compose_runtime_services, report_counted_result
+from thief_peer.wire.series_composition import prepare_series_startup
 
 logger = logging.getLogger(__name__)
 
@@ -73,21 +67,10 @@ def run_one_peer(
     except (ConfigError, CountedPlayNotReadyError) as exc:
         logger.error("Startup refused before transport startup: %s", exc)
         return 2
-    inboxes = Inboxes()
-    reply_terms = project_terms(raw_config, private.__dict__)
-    reply_terms["num_games"] = 6
-    resume = None
-    if resume_sg1_dir is not None:
-        resume = load_sg2_resume(
-            resume_sg1_dir,
-            terms=reply_terms,
-            group_id=group_id,
-            locks=None,
-            settled_sg2_dir=resume_sg2_dir,
-        )
-    inboxes.agreement_reply = counter_signed_reply_builder(
-        terms=reply_terms, group_id=group_id, natural_role=role,
+    inboxes, resume = prepare_series_startup(
+        raw_config=raw_config, private=private, group_id=group_id, role=role,
         identity_block=runtime.greeting_identity,
+        resume_sg1_dir=resume_sg1_dir, resume_sg2_dir=resume_sg2_dir,
     )
     serve_background(
         inboxes,
@@ -98,17 +81,7 @@ def run_one_peer(
     )
     channel: McpChannel | None = None
     try:
-        deadline = time.monotonic() + connect_timeout
-        connected = False
-        probe_delay = 0.2
-        while time.monotonic() < deadline:
-            if edge_answers(peer_url, timeout=0.5):
-                connected = True
-                break
-            time.sleep(probe_delay)
-            probe_delay = min(2.0, probe_delay * 1.5)
-
-        if not connected:
+        if not wait_for_edge(peer_url, connect_timeout, probe=edge_answers):
             logger.error("Peer URL %s unreachable within %ss", peer_url, connect_timeout)
             return 7
 
@@ -145,20 +118,16 @@ def run_one_peer(
         )
 
         result = facade.run()
-        publish_replay_bundle = partial(
-            _publish_replay_bundle, token_ledger=runtime.token_ledger,
-        )
         if mode == "counted":
             try:
                 assert_counted_eligible(runtime.token_ledger)
             except CountedPlayIneligibleError as exc:
                 logger.error("Counted series refused after token accounting: %s", exc)
                 if artifacts_dir:
-                    write_artifacts(
+                    write_series_artifacts(
                         artifacts_dir, result, role=role, group_id=group_id, mode=mode,
+                        token_ledger=runtime.token_ledger,
                     )
-                    if result.settled:
-                        publish_replay_bundle(artifacts_dir, result)
                 return 2
         agreement = settle(
             channel, result, our_group=group_id, budget=turn_timeout,
@@ -167,18 +136,17 @@ def run_one_peer(
 
         kit_result_path = None
         if artifacts_dir:
-            write_artifacts(
+            write_series_artifacts(
                 artifacts_dir, result, role=role, group_id=group_id, mode=mode,
+                token_ledger=runtime.token_ledger,
             )
-            if result.settled:
-                publish_replay_bundle(artifacts_dir, result)
-                if emit_kit_bundle:
-                    kit_result_path = publish_kit(
-                        artifacts_dir, result, our_group=group_id, mode=mode,
-                        confirmed=agreement.agreed, identity=runtime.identity,
-                        opponent_identity=result.opponent_identity,
-                        shared_config=raw_config, agreement=agreement,
-                    )
+            if result.settled and emit_kit_bundle:
+                kit_result_path = publish_kit(
+                    artifacts_dir, result, our_group=group_id, mode=mode,
+                    confirmed=agreement.agreed, identity=runtime.identity,
+                    opponent_identity=result.opponent_identity,
+                    shared_config=raw_config, agreement=agreement,
+                )
 
         if mode == "counted" and not agreement.agreed:
             # The series played and audited cleanly; only the settlement handshake did not

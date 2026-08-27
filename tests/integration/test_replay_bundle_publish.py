@@ -12,7 +12,7 @@ from common.transport.replay import verify_replay
 from common.transport.replay_types import ReplayVerdict
 from common.transport.series import PeerConfig, SeriesResult, run_series
 from thief_peer.reporting.replay_bundle import publish_replay_bundle
-from thief_peer.runner import write_artifacts
+from thief_peer.reporting.runtime_artifacts import write_artifacts
 from thief_peer.wire import StandInEngine
 
 _TERMS = {

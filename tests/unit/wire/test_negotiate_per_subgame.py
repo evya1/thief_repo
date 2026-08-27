@@ -1,8 +1,4 @@
-"""Tests for per-sub-game negotiation (T052, SPEC 7.2/7.3, ADR-011).
-
-Unit-level tests drive ``negotiated_subgame_driver`` directly over a loopback channel.
-Live-lifecycle tests drive a full series exclusively through ``create_peer``/``run()``.
-"""
+"""Unit and live-lifecycle tests for per-sub-game negotiation."""
 
 from __future__ import annotations
 
@@ -103,11 +99,18 @@ def _run_pair(group_a: str, group_b: str, channel_pair=None):
 # --- sub-game 1 is skipped; sub-games 2+ get a real handshake --------------------------
 
 
-def test_subgame_one_skips_its_own_handshake() -> None:
+@pytest.mark.parametrize(("sub_game", "skip_sub_games"), [
+    (1, frozenset()),
+    (2, frozenset({2})),
+])
+def test_subgame_handshake_is_skipped_when_not_required(sub_game, skip_sub_games) -> None:
     ch_a, ch_b = pair("A", "B")
     calls: list[int] = []
-    negotiated_subgame_driver("A", inner=_stub_inner(calls))(ch_a, None, _config(Role.THIEF), 1)
-    assert calls == [1]
+    driver = negotiated_subgame_driver(
+        "A", inner=_stub_inner(calls), skip_sub_games=skip_sub_games
+    )
+    driver(ch_a, None, _config(Role.THIEF), sub_game)
+    assert calls == [sub_game]
     assert ch_b.poll_agreement() is None  # nothing was sent to the opponent
 
 
@@ -119,16 +122,6 @@ def test_subgame_two_negotiates_correct_alternating_role_and_calls_inner() -> No
     sent = _negotiate(driver, ch_a, ch_b, 2, opp_role=Role.THIEF.value)
     assert calls == [2] and role_for(Role.THIEF, 2) == Role.POLICE
     assert sent["role"] == Role.POLICE.value and sent["sub_game_number"] == 2
-
-
-def test_recovery_skips_the_already_accepted_subgame_two_greeting() -> None:
-    ch_a, ch_b = pair("A", "B")
-    calls: list[int] = []
-    driver = negotiated_subgame_driver("A", inner=_stub_inner(calls),
-                                       skip_sub_games=frozenset({2}))
-    driver(ch_a, None, _config(Role.THIEF), 2)
-    assert calls == [2]
-    assert ch_b.poll_agreement() is None
 
 
 @pytest.mark.parametrize(("opp_role", "opp_sub_game", "code"), [
@@ -146,17 +139,11 @@ def test_pairing_mismatches_refuse(opp_role, opp_sub_game, code) -> None:
 # --- game_uid PROPOSED declaration: omission silent, match legal, mismatch refuses -----
 
 
-def test_game_uid_omitted_on_first_negotiated_subgame_is_legal() -> None:
-    ch_a, ch_b = pair("A", "B")
-    driver = negotiated_subgame_driver("A", inner=_stub_inner([]))
-    sent = _negotiate(driver, ch_a, ch_b, 2, opp_role=Role.THIEF.value)  # must not raise
-    assert "game_uid" not in sent  # opponent unknown to us yet -- silence, not refusal
-
-
 def test_game_uid_declared_and_matching_once_opponent_pinned_and_mismatch_refuses() -> None:
     ch_a, ch_b = pair("A", "B")
     driver = negotiated_subgame_driver("A", inner=_stub_inner([]))
-    _negotiate(driver, ch_a, ch_b, 2, opp_role=Role.THIEF.value)  # pins opponent "B"
+    first = _negotiate(driver, ch_a, ch_b, 2, opp_role=Role.THIEF.value)
+    assert "game_uid" not in first  # opponent was unknown before this exchange
     sent = _negotiate(driver, ch_a, ch_b, 3, opp_role=Role.POLICE.value)
     assert "game_uid" in sent  # declared now that the opponent is pinned, and must not raise
 

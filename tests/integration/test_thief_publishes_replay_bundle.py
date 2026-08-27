@@ -1,9 +1,7 @@
 """The thief runner must publish the internal replay bundle, not just a result summary.
 
-Before this, `src/thief_peer/runner.py` never called `publish_replay_bundle` at all: the
-module existed, was tested in isolation, and was simply never wired into production. The
-symptom was that a thief series left one `result_*.json` behind and nothing replayable, so
-half of every match had no evidence anyone could audit.
+The runner delegates artifact policy to ``reporting.runtime_artifacts``; that boundary must
+still publish a replay for every settled result.
 """
 
 from __future__ import annotations
@@ -69,7 +67,10 @@ def test_the_runner_wires_publication_rather_than_only_a_summary():
     import inspect
 
     from thief_peer import runner
+    from thief_peer.reporting import runtime_artifacts
 
-    source = inspect.getsource(runner.run_one_peer)
-    assert "publish_replay_bundle(artifacts_dir, result)" in source
-    assert "publish_kit(" in source
+    runner_source = inspect.getsource(runner.run_one_peer)
+    artifact_source = inspect.getsource(runtime_artifacts.write_series_artifacts)
+    assert "write_series_artifacts(" in runner_source
+    assert "publish_replay_bundle(" in artifact_source
+    assert "publish_kit(" in runner_source

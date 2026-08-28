@@ -1,21 +1,13 @@
-"""End-to-end series engine over a PeerChannel.
-
-The top of the tree: a full six-sub-game series that drives handshake, strict
-thief-first alternation, at-least-once turn delivery, and a real three-layer mutual
-audit over any PeerChannel (loopback for CI, FastMCP for production). The engine is
-role-agnostic: it takes the natural role and the channel and derives the per-sub-game
-role via ``role_for``. A failed audit settles the sub-game ``TAMPER_FORFEIT`` — both
-sides zeroed, no repair path (FR-29). The per-sub-game turn loop lives in
-``subgame.py`` (150-logical-line cap).
-"""
+"""Role-agnostic six-sub-game engine over any ``PeerChannel`` implementation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from common.domain.scoring import Outcome, Role, settled_outcome
+from common.domain.scoring import Outcome, Role, role_for, settled_outcome
 from common.transport import replay_evidence as _replay_evidence
+from common.transport.greetings import NegotiationContext, SeriesGreetingSession
 from common.transport.opponent_pin import OpponentPin
 from common.transport.replay_evidence import SubgameDriver, SubgameReplayEvidence
 from common.transport.series_greeting import exchange_series_greeting
@@ -31,26 +23,17 @@ class Budgets(Protocol):
     poll_interval: float
 
 
+@dataclass(eq=False, repr=False, slots=True)
 class PeerConfig:
     """Configuration injected into the series engine."""
 
-    def __init__(
-        self,
-        natural_role: Role,
-        budgets: Budgets,
-        terms: dict,
-        seed: int = 0,
-        locks: dict[str, str] | None = None,
-        mode: str = "warmup",
-        identity_block: dict | None = None,
-    ) -> None:
-        self.natural_role = natural_role
-        self.budgets = budgets
-        self.terms = terms
-        self.seed = seed
-        self.locks = locks
-        self.mode = mode
-        self.identity_block = identity_block
+    natural_role: Role
+    budgets: Budgets
+    terms: dict
+    seed: int = 0
+    locks: dict[str, str] | None = None
+    mode: str = "warmup"
+    identity_block: dict | None = None
 
 
 @dataclass
@@ -86,6 +69,19 @@ class SeriesResult:
     replay_evidence: tuple[SubgameReplayEvidence, ...] = ()
 
 
+@dataclass(frozen=True)
+class SeriesResume:
+    """Verified state needed to resume after a process loss at a sub-game boundary."""
+
+    game_id: str
+    game_uid: str
+    opponent_group_id: str
+    opponent_identity: dict | None
+    ledger: tuple[SeriesRow, ...]
+    replay_evidence: tuple[SubgameReplayEvidence, ...]
+    next_sub_game: int
+
+
 class TurnEngine(Protocol):
     """The interface the series engine calls to get a move."""
 
@@ -115,6 +111,8 @@ class PeerFacade:
         subgame_driver: SubgameDriver | None = None,
         mode: str | None = None,
         opponent_pin: OpponentPin | None = None,
+        resume: SeriesResume | None = None,
+        greeting_session: SeriesGreetingSession | None = None,
     ) -> None:
         self.channel = channel
         self.engine = engine
@@ -125,16 +123,36 @@ class PeerFacade:
         # per-sub-game negotiation driver, so sub-game 1's verified opponent -- learned
         # right here -- is the one sub-games 2-6 are compared against.
         self._opponent_pin = opponent_pin if opponent_pin is not None else OpponentPin()
-        self._game_id = self._game_uid = self._opponent_group_id = ""
-        self._opponent_identity: dict | None = None
-        self._ledgers: list[SeriesRow] = []
+        self._resume = resume
+        self._game_id = resume.game_id if resume else ""
+        self._game_uid = resume.game_uid if resume else ""
+        self._opponent_group_id = resume.opponent_group_id if resume else ""
+        self._opponent_identity = resume.opponent_identity if resume else None
+        self._ledgers = list(resume.ledger) if resume else []
         self._subgame_driver = subgame_driver or _replay_evidence.default_subgame_driver()
+        context = NegotiationContext(
+            terms=config.terms, group_id=name, locks=config.locks,
+            identity_block=config.identity_block,
+        )
+        self._greetings = greeting_session or SeriesGreetingSession(context)
+        self._greetings.require_context(context)
 
     def run(self) -> SeriesResult:
         """Run a full six-sub-game series. Return the result."""
-        self._exchange_greeting()
-        evidence = _replay_evidence.EvidenceCollector(self._game_id, self._game_uid)
-        for sub_game in range(1, 7):
+        select_endpoint = getattr(self.channel, "select_for_role", None)
+        first_sub_game = self._resume.next_sub_game if self._resume else 1
+        if select_endpoint is not None:
+            select_endpoint(role_for(self.config.natural_role, first_sub_game))
+        if self._resume is None:
+            self._exchange_greeting()
+        evidence = _replay_evidence.EvidenceCollector(
+            self._game_id,
+            self._game_uid,
+            initial=self._resume.replay_evidence if self._resume else (),
+        )
+        for sub_game in range(first_sub_game, 7):
+            if select_endpoint is not None:
+                select_endpoint(role_for(self.config.natural_role, sub_game))
             row = self._subgame_driver(
                 self.channel, self.engine, self.config, sub_game, evidence_sink=evidence.capture
             )
@@ -156,7 +174,7 @@ class PeerFacade:
     def _exchange_greeting(self) -> None:
         """Send our greeting and poll for the opponent's, then verify (fixed FR-13 order)."""
         resolved = exchange_series_greeting(
-            self.channel, self.config, self.name, self._opponent_pin,
+            self.channel, self.config, self.name, self._opponent_pin, self._greetings,
         )
         (self._game_id, self._game_uid, self._opponent_group_id,
          self._opponent_identity) = resolved

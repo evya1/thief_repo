@@ -74,10 +74,17 @@ class EvidenceCollector:
     ``SubgameDriver`` invokes.
     """
 
-    def __init__(self, game_id: str, game_uid: str) -> None:
+    def __init__(
+        self,
+        game_id: str,
+        game_uid: str,
+        initial: tuple[SubgameReplayEvidence, ...] = (),
+    ) -> None:
         self._game_id = game_id
         self._game_uid = game_uid
-        self._entries: list[SubgameReplayEvidence] = []
+        self._entries = [
+            replace(entry, game_id=game_id, game_uid=game_uid) for entry in initial
+        ]
 
     def capture(self, evidence: SubgameReplayEvidence) -> None:
         """Attach the bound identity to ``evidence`` and accumulate it."""
